@@ -100,3 +100,26 @@ Bạn chỉ cần thay hàm `translate(text, source_lang, target_lang)` để:
 
 Sau khi cập nhật, frontend và Java API sẽ tự động dùng bản dịch thật mà không cần đổi lại contract.
 
+Hướng dẫn clone về & cài thư viện
+
+# 1. Clone project
+git clone https://github.com/quangtuane2/translate-app.git
+cd translate-app
+
+# 2. Cài Python dependencies
+cd python-inference
+python -m venv .venv
+.venv\Scripts\activate       # Windows
+pip install -r requirements.txt
+
+# 3. Cài Node.js dependencies
+cd ../frontend
+npm install
+
+# 4. Build Java (Maven tự tải dependencies)
+cd ../backend-java
+mvn install
+
+# dowloand model AI
+https://drive.google.com/drive/folders/1M5o-T0alc5zGt8IGBH5am4ew7Ej5kxlO?usp=sharing
+# lưu tất cả các model vào đường dẫn sau: python-inference/models/
