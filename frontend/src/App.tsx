@@ -16,6 +16,15 @@ type ExampleItem = {
   ethnic: string
 }
 
+type HistoryItem = {
+  id: string
+  sourceText: string
+  targetText: string
+  sourceLang: LangCode
+  targetLang: LangCode
+  timestamp: number
+}
+
 type ApiError = {
   message?: string
   details?: string[]
@@ -100,6 +109,29 @@ const IconMic = () => (
   </svg>
 )
 
+const IconHistory = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+)
+
+const IconStar = ({ filled }: { filled?: boolean }) => (
+  <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+)
+
+const IconTrash = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+)
+
 export default function App() {
   const [sourceLang, setSourceLang] = useState<LangCode>('vi')
   const [targetLang, setTargetLang] = useState<LangCode>('bna')
@@ -111,6 +143,20 @@ export default function App() {
   const [error, setError] = useState<string>('')
   const [showKeyboard, setShowKeyboard] = useState<boolean>(false)
   const [isListening, setIsListening] = useState<boolean>(false)
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('translate_history')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [favorites, setFavorites] = useState<HistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('translate_favorites')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
+  const [showHistory, setShowHistory] = useState<boolean>(false)
+  const [showFavorites, setShowFavorites] = useState<boolean>(false)
   const [toast, setToast] = useState<boolean>(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -125,6 +171,15 @@ export default function App() {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
   }, [])
+
+  // Save to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('translate_history', JSON.stringify(history))
+  }, [history])
+
+  useEffect(() => {
+    localStorage.setItem('translate_favorites', JSON.stringify(favorites))
+  }, [favorites])
 
   /* ── Handlers ──────────────────────────────────────────── */
   const swapDirection = () => {
@@ -185,7 +240,26 @@ export default function App() {
         return
       }
       const data = await resp.json()
-      setOutputText(data?.translatedText ?? '')
+      const resultText = data?.translatedText ?? ''
+      setOutputText(resultText)
+
+      // Add to History
+      if (resultText && clean) {
+        const newItem: HistoryItem = {
+          id: Date.now().toString(),
+          sourceText: clean,
+          targetText: resultText,
+          sourceLang,
+          targetLang,
+          timestamp: Date.now()
+        }
+        setHistory(prev => {
+          // Avoid duplicates (same text and langs)
+          const isDup = prev.find(h => h.sourceText === clean && h.sourceLang === sourceLang && h.targetLang === targetLang)
+          if (isDup) return prev
+          return [newItem, ...prev].slice(0, 50) // Keep last 50
+        })
+      }
     } catch {
       setError('Không thể kết nối tới máy chủ dịch. Kiểm tra lại backend.')
       setOutputText('')
@@ -226,12 +300,30 @@ export default function App() {
   const handleInputChange = (val: string) => {
     setInputText(val)
     setError('')
-
     // Debounce fetching examples
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       void fetchExamples(val, sourceLang, targetLang)
     }, 600) // Wait 600ms after user stops typing
+  }
+
+  const saveCurrentToFavorites = () => {
+    const sText = inputText.trim()
+    const tText = outputText.trim()
+    if (!sText || !tText) {
+      setError('Cần có cả văn bản gốc và kết quả dịch để lưu vào yêu thích.')
+      return
+    }
+
+    const item: HistoryItem = {
+      id: Date.now().toString(),
+      sourceText: sText,
+      targetText: tText,
+      sourceLang,
+      targetLang,
+      timestamp: Date.now()
+    }
+    toggleFavorite(item)
   }
 
   const toggleListening = () => {
@@ -266,6 +358,39 @@ export default function App() {
     }
 
     recognition.start()
+  }
+
+  const toggleFavorite = (item: HistoryItem) => {
+    setFavorites(prev => {
+      // Check by content and language to sync across form/history
+      const isFav = prev.find(f => 
+        f.sourceText === item.sourceText && 
+        f.targetText === item.targetText && 
+        f.targetLang === item.targetLang
+      )
+      if (isFav) {
+        return prev.filter(f => f.id !== isFav.id)
+      }
+      return [item, ...prev]
+    })
+  }
+
+  const isFavorited = (sText: string, tText: string, tLang: LangCode) => {
+    return !!favorites.find(f => 
+      f.sourceText === sText.trim() && 
+      f.targetText === tText.trim() && 
+      f.targetLang === tLang
+    )
+  }
+
+  const deleteHistoryItem = (id: string) => {
+    setHistory(prev => prev.filter(h => h.id !== id))
+  }
+
+  const clearAllHistory = () => {
+    if (window.confirm('Bạn có chắc muốn xóa toàn bộ lịch sử dịch?')) {
+      setHistory([])
+    }
   }
 
   const handleSourceChange = (val: LangCode) => {
@@ -427,6 +552,15 @@ export default function App() {
               >
                 <IconCopy />
               </button>
+              <button
+                id="favInlineBtn"
+                className={`btn-fav-inline ${isFavorited(inputText, outputText, targetLang) ? 'active' : ''}`}
+                type="button"
+                title="Lưu vào yêu thích"
+                onClick={saveCurrentToFavorites}
+              >
+                <IconStar filled={isFavorited(inputText, outputText, targetLang)} />
+              </button>
             </div>
           </div>
         </div>
@@ -451,6 +585,20 @@ export default function App() {
               onClick={() => setShowKeyboard(!showKeyboard)}
             >
               <IconKeyboard /> Bàn phím
+            </button>
+            <button
+              className={`btn-secondary${showHistory ? ' active' : ''}`}
+              type="button"
+              onClick={() => { setShowHistory(!showHistory); setShowFavorites(false); setShowKeyboard(false) }}
+            >
+              <IconHistory /> Lịch sử
+            </button>
+            <button
+              className={`btn-secondary${showFavorites ? ' active' : ''}`}
+              type="button"
+              onClick={() => { setShowFavorites(!showFavorites); setShowHistory(false); setShowKeyboard(false) }}
+            >
+              <IconStar filled={showFavorites} /> Yêu thích
             </button>
           </div>
 
@@ -509,6 +657,81 @@ export default function App() {
             language={sourceLang}
             onClose={() => setShowKeyboard(false)}
           />
+        </div>
+      )}
+
+      {/* ── History Section ─────────────────────────────── */}
+      {showHistory && (
+        <div className="extra-section history-section">
+          <div className="section-header">
+            <h3><IconHistory /> Lịch sử dịch gần đây</h3>
+            <button className="btn-text" onClick={clearAllHistory}>
+              <IconTrash /> Xóa hết
+            </button>
+          </div>
+          <div className="history-list">
+            {history.length === 0 ? (
+              <p className="empty-msg">Chưa có lịch sử dịch nào.</p>
+            ) : (
+              history.map(item => (
+                <div key={item.id} className="history-item-card">
+                  <div className="item-langs">
+                    {LANG_META[item.sourceLang].label} → {LANG_META[item.targetLang].label}
+                  </div>
+                  <div className="item-content">
+                    <div className="item-source">{item.sourceText}</div>
+                    <div className="item-target">{item.targetText}</div>
+                  </div>
+                  <div className="item-actions">
+                    <button 
+                      className={`btn-star ${isFavorited(item.sourceText, item.targetText, item.targetLang) ? 'active' : ''}`}
+                      onClick={() => toggleFavorite(item)}
+                    >
+                      <IconStar filled={isFavorited(item.sourceText, item.targetText, item.targetLang)} />
+                    </button>
+                    <button className="btn-delete" onClick={() => deleteHistoryItem(item.id)}>
+                      <IconTrash />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Favorites Section ───────────────────────────── */}
+      {showFavorites && (
+        <div className="extra-section favorites-section">
+          <div className="section-header">
+            <h3><IconStar filled /> Từ vựng đã lưu</h3>
+            <span className="count-badge">{favorites.length} mục</span>
+          </div>
+          <div className="history-list">
+            {favorites.length === 0 ? (
+              <p className="empty-msg">Bạn chưa lưu từ vựng nào.</p>
+            ) : (
+              favorites.map(item => (
+                <div key={item.id} className="history-item-card favorite">
+                  <div className="item-langs">
+                    {LANG_META[item.sourceLang].label} → {LANG_META[item.targetLang].label}
+                  </div>
+                  <div className="item-content">
+                    <div className="item-source">{item.sourceText}</div>
+                    <div className="item-target">{item.targetText}</div>
+                  </div>
+                  <div className="item-actions">
+                    <button className="btn-star active" onClick={() => toggleFavorite(item)}>
+                      <IconStar filled />
+                    </button>
+                    <button className="btn-delete" onClick={() => toggleFavorite(item)}>
+                      <IconTrash />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
