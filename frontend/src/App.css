@@ -422,6 +422,16 @@ textarea:focus {
   border-color: #d1d5db;
 }
 
+.btn-secondary.active {
+  background: var(--indigo-mid);
+  border-color: var(--indigo-mid);
+  color: white;
+}
+
+.btn-secondary.active svg {
+  color: white;
+}
+
 .btn-secondary svg {
   width: 14px;
   height: 14px;
@@ -745,6 +755,158 @@ textarea:focus {
 .dict-card:hover .dict-card-arrow {
   opacity: 1;
   transform: translateX(3px);
+}
+
+/* ── Keyboard Toggle ────────────────────────────────────── */
+.btn-keyboard-toggle {
+  position: absolute;
+  bottom: 10px;
+  right: 100px; /* To the left of char-count */
+  background: #f3f4f6;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 32px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.btn-keyboard-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-keyboard-toggle:hover {
+  background: #e5e7eb;
+  color: var(--text);
+}
+
+.btn-keyboard-toggle.active {
+  background: var(--indigo-mid);
+  border-color: var(--indigo-mid);
+  color: white;
+  box-shadow: 0 0 10px rgba(67, 56, 202, 0.3);
+}
+
+/* ── Virtual Keyboard (External) ────────────────────────── */
+.keyboard-outer-wrap {
+  width: 95%;
+  max-width: 1100px;
+  margin: 40px auto;
+  z-index: 100;
+}
+
+.virtual-keyboard-container {
+  background: #ffffff !important;
+  border: 2px solid var(--indigo-mid);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+}
+
+.keyboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 0 10px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.kb-title {
+  color: var(--indigo-dark);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.btn-close-kb {
+  background: #f3f4f6;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.btn-close-kb:hover {
+  background: #fee2e2;
+  transform: scale(1.1);
+}
+
+/* Custom Keyboard Grid Layout */
+.keyboard-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.kb-key {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-bottom: 3px solid #9ca3af;
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 45px;
+  height: 50px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1e1b4b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  user-select: none;
+  font-family: inherit;
+}
+
+.kb-key:hover {
+  background: #f9fafb;
+  border-color: var(--indigo-mid);
+}
+
+.kb-key:active {
+  transform: translateY(2px);
+  border-bottom-width: 1px;
+}
+
+.kb-key.key-func {
+  background: #e0e7ff;
+  color: var(--indigo-dark);
+  font-size: 0.9rem;
+  padding: 0 15px;
+  min-width: 80px;
+}
+
+.kb-key.key-space {
+  flex: 0.6;
+  min-width: 300px;
+}
+
+.kb-key.active {
+  background: var(--indigo-mid);
+  color: white;
+  border-color: var(--indigo-dark);
+}
+
+/* Adjust char count position if needed */
+.char-count {
+  right: 15px;
 }
 
 /* ── Footer ────────────────────────────────────────── */

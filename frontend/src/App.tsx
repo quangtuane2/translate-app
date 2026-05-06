@@ -6,8 +6,10 @@ import logo from './assets/logo.png'
 import viFlag from './assets/vietnam.png'
 import bnaFlag from './assets/bana.png'
 import edeFlag from './assets/ede.png'
+import khmerFlag from './assets/khmer.png'
+import VirtualKeyboard from './VirtualKeyboard'
 
-type LangCode = 'vi' | 'bna' | 'ede'
+type LangCode = 'vi' | 'bna' | 'ede' | 'km'
 
 type ExampleItem = {
   vi: string
@@ -23,6 +25,7 @@ const LANG_META: Record<LangCode, { label: string; flag: string }> = {
   vi: { label: 'Vietnamese', flag: viFlag },
   bna: { label: 'Ba Na', flag: bnaFlag },
   ede: { label: 'Ê-đê', flag: edeFlag },
+  km: { label: 'Khmer', flag: khmerFlag },
 }
 
 const MAX_CHARS = 5000
@@ -56,12 +59,12 @@ const IconTranslate = () => (
   </svg>
 )
 
-const IconStar = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-    strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13 }}>
-    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-  </svg>
-)
+// const IconStar = () => (
+//   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+//     strokeLinecap="round" strokeLinejoin="round" style={{ width: 13, height: 13 }}>
+//     <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+//   </svg>
+// )
 
 const IconInfo = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
@@ -69,6 +72,21 @@ const IconInfo = () => (
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="8" x2="12" y2="12" />
     <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+)
+
+const IconKeyboard = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="4" width="20" height="16" rx="2" ry="2" />
+    <line x1="7" y1="8" x2="7" y2="8" />
+    <line x1="12" y1="8" x2="12" y2="8" />
+    <line x1="17" y1="8" x2="17" y2="8" />
+    <line x1="7" y1="12" x2="7" y2="12" />
+    <line x1="12" y1="12" x2="12" y2="12" />
+    <line x1="17" y1="12" x2="17" y2="12" />
+    <line x1="7" y1="16" x2="7" y2="16" />
+    <line x1="12" y1="16" x2="17" y2="16" />
   </svg>
 )
 
@@ -81,6 +99,7 @@ export default function App() {
   const [examples, setExamples] = useState<ExampleItem[]>([])
   const [loadingExamples, setLoadingExamples] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
+  const [showKeyboard, setShowKeyboard] = useState<boolean>(false)
   const [toast, setToast] = useState<boolean>(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -219,7 +238,7 @@ export default function App() {
           <img src={logo} alt="Logo" className="app-logo" />
         </div>
         <div className="brand">Minority Language Translator</div>
-        <div className="subtitle">VIETNAMESE ↔ BA NA / Ê-ĐÊ</div>
+        <div className="subtitle">VIETNAMESE ↔ BA NA / Ê-ĐÊ / KHMER</div>
       </header>
 
       {/* ── Card ──────────────────────────────────────────── */}
@@ -242,6 +261,7 @@ export default function App() {
                 <option value="vi">Vietnamese</option>
                 <option value="bna">Ba Na </option>
                 <option value="ede">Ê-đê</option>
+                <option value="km">Khmer</option>
               </select>
               <span className="lang-arrow">▾</span>
             </div>
@@ -270,6 +290,7 @@ export default function App() {
                 <option value="vi">Vietnamese</option>
                 <option value="bna">Ba Na</option>
                 <option value="ede">Ê-đê</option>
+                <option value="km">Khmer</option>
               </select>
               <span className="lang-arrow">▾</span>
             </div>
@@ -349,6 +370,14 @@ export default function App() {
               onClick={() => void copyOutput()}>
               <IconCopy /> Copy
             </button>
+            <button
+              id="keyboardBtn"
+              className={`btn-secondary${showKeyboard ? ' active' : ''}`}
+              type="button"
+              onClick={() => setShowKeyboard(!showKeyboard)}
+            >
+              <IconKeyboard /> Bàn phím
+            </button>
           </div>
 
           <button
@@ -397,6 +426,18 @@ export default function App() {
         )}
       </section>
 
+      {/* ── Virtual Keyboard (Outside Card) ──────────────── */}
+      {showKeyboard && (
+        <div className="keyboard-outer-wrap">
+          <VirtualKeyboard
+            input={inputText}
+            onChange={handleInputChange}
+            language={sourceLang}
+            onClose={() => setShowKeyboard(false)}
+          />
+        </div>
+      )}
+
       {/* ── Popular Dictionaries ─────────────────────────── */}
       <div className="popular-section">
         <h2 className="section-title">Popular and recommended dictionaries</h2>
@@ -406,6 +447,8 @@ export default function App() {
             { from: 'bna', to: 'vi', label: 'Bahnar - Vietnamese' },
             { from: 'vi', to: 'ede', label: 'Vietnamese - Ê-đê' },
             { from: 'ede', to: 'vi', label: 'Ê-đê - Vietnamese' },
+            { from: 'vi', to: 'km', label: 'Vietnamese - Khmer' },
+            { from: 'km', to: 'vi', label: 'Khmer - Vietnamese' },
             { from: 'vi', to: 'en', label: 'Vietnamese - English' },
             { from: 'en', to: 'vi', label: 'English - Vietnamese' },
           ].map((pair, idx) => (
