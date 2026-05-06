@@ -127,7 +127,19 @@ export default function App() {
 
   const copyOutput = async () => {
     const text = outputText.trim()
-    if (!text) { setError('Chưa có nội dung để copy.'); return }
+    if (!text) { setError('Chưa có nội dung kết quả để copy.'); return }
+    try {
+      await navigator.clipboard.writeText(text)
+      setError('')
+      showToast()
+    } catch {
+      setError('Không thể copy tự động trên trình duyệt này.')
+    }
+  }
+
+  const copyInput = async () => {
+    const text = inputText.trim()
+    if (!text) { setError('Chưa có nội dung nguồn để copy.'); return }
     try {
       await navigator.clipboard.writeText(text)
       setError('')
@@ -323,6 +335,15 @@ export default function App() {
                 title="Xóa văn bản"
                 onClick={clearAll}
               >✕</button>
+              <button
+                id="copyInputInlineBtn"
+                className="btn-copy-inline-input"
+                type="button"
+                title="Copy văn bản gốc"
+                onClick={() => void copyInput()}
+              >
+                <IconCopy />
+              </button>
               <span className="char-count">{charCount}/{MAX_CHARS}</span>
             </div>
           </div>
@@ -365,10 +386,6 @@ export default function App() {
           <div className="actions-left">
             <button id="clearBtn" className="btn-secondary" type="button" onClick={clearAll}>
               Xóa nhanh
-            </button>
-            <button id="copyBtn" className="btn-secondary" type="button"
-              onClick={() => void copyOutput()}>
-              <IconCopy /> Copy
             </button>
             <button
               id="keyboardBtn"

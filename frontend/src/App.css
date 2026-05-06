@@ -371,6 +371,33 @@ textarea:focus {
   display: block;
 }
 
+/* Copy icon inside input */
+.btn-copy-inline-input {
+  position: absolute;
+  bottom: 8px;
+  right: 75px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--indigo-mid);
+  opacity: 0.6;
+  transition: opacity var(--transition), transform var(--transition);
+  padding: 4px;
+  border-radius: 6px;
+  z-index: 5;
+}
+
+.btn-copy-inline-input:hover {
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.btn-copy-inline-input svg {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
 /* ── Error box ──────────────────────────────────────────── */
 .error-box {
   margin-bottom: 12px;
