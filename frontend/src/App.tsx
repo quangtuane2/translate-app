@@ -9,6 +9,11 @@ import edeFlag from './assets/ede.png'
 
 type LangCode = 'vi' | 'bna' | 'ede'
 
+type ExampleItem = {
+  vi: string
+  ethnic: string
+}
+
 type ApiError = {
   message?: string
   details?: string[]
@@ -73,9 +78,12 @@ export default function App() {
   const [inputText, setInputText] = useState<string>('')
   const [outputText, setOutputText] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
+  const [examples, setExamples] = useState<ExampleItem[]>([])
+  const [loadingExamples, setLoadingExamples] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
   const [toast, setToast] = useState<boolean>(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /* Show toast then hide after 2 s */
   const showToast = () => {
@@ -83,7 +91,10 @@ export default function App() {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(false), 2000)
   }
-  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current) }, [])
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+  }, [])
 
   /* ── Handlers ──────────────────────────────────────────── */
   const swapDirection = () => {
@@ -93,7 +104,7 @@ export default function App() {
     setInputText(po); setOutputText(pi)
   }
 
-  const clearAll = () => { setError(''); setInputText(''); setOutputText('') }
+  const clearAll = () => { setError(''); setInputText(''); setOutputText(''); setExamples([]) }
 
   const copyOutput = async () => {
     const text = outputText.trim()
@@ -114,6 +125,9 @@ export default function App() {
     if (sourceLang === targetLang) { setError('Ngôn ngữ nguồn và đích không được giống nhau.'); return }
 
     setLoading(true)
+    setExamples([])
+
+    // Fetch Translation
     try {
       const resp = await fetch('/api/translate', {
         method: 'POST',
@@ -124,6 +138,7 @@ export default function App() {
         const err = (await resp.json().catch(() => null)) as ApiError | null
         setError(err?.message || 'Dịch thất bại. Vui lòng thử lại.')
         setOutputText('')
+        setLoading(false)
         return
       }
       const data = await resp.json()
@@ -134,6 +149,46 @@ export default function App() {
     } finally {
       setLoading(false)
     }
+
+    // Fetch Examples (concurrently or after)
+    fetchExamples(clean, sourceLang, targetLang)
+  }
+
+  const fetchExamples = async (text: string, sl: LangCode, tl: LangCode) => {
+    const query = text.trim()
+    if (!query || query.length < 2) {
+      setExamples([])
+      setLoadingExamples(false)
+      return
+    }
+
+    setLoadingExamples(true)
+    try {
+      const resp = await fetch('/api/examples', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: query, sourceLang: sl, targetLang: tl }),
+      })
+      if (resp.ok) {
+        const data = await resp.json()
+        setExamples(data?.examples || [])
+      }
+    } catch (err) {
+      console.error("Failed to fetch examples", err)
+    } finally {
+      setLoadingExamples(false)
+    }
+  }
+
+  const handleInputChange = (val: string) => {
+    setInputText(val)
+    setError('')
+
+    // Debounce fetching examples
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => {
+      void fetchExamples(val, sourceLang, targetLang)
+    }, 600) // Wait 600ms after user stops typing
   }
 
   const handleSourceChange = (val: LangCode) => {
@@ -235,7 +290,7 @@ export default function App() {
                 placeholder="Nhập văn bản..."
                 value={inputText}
                 maxLength={MAX_CHARS}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void doTranslate()
                 }}
@@ -309,13 +364,111 @@ export default function App() {
             }
           </button>
         </div>
+
+        {/* ── Dictionary & Examples ─────────────────────── */}
+        {(examples.length > 0 || loadingExamples || (inputText.trim().length >= 2 && !loadingExamples)) && (
+          <div className="examples-section">
+            <h3 className="examples-title">
+              <IconInfo /> Từ điển Ngữ cảnh & Ví dụ
+            </h3>
+            {loadingExamples ? (
+              <div className="examples-loading">
+                <span className="spinner" /> Đang tìm ví dụ...
+              </div>
+            ) : examples.length > 0 ? (
+              <div className="examples-list">
+                {examples.map((ex, idx) => (
+                  <div key={idx} className="example-item">
+                    <div className="example-vi">
+                      <span className="bullet">•</span> {ex.vi}
+                    </div>
+                    <div className="example-ethnic">
+                      {ex.ethnic}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : inputText.trim().length >= 2 ? (
+              <div className="examples-empty">
+                Chưa có ví dụ cho từ khóa này trong bộ dữ liệu.
+              </div>
+            ) : null}
+          </div>
+        )}
       </section>
 
+      {/* ── Popular Dictionaries ─────────────────────────── */}
+      <div className="popular-section">
+        <h2 className="section-title">Popular and recommended dictionaries</h2>
+        <div className="popular-grid">
+          {[
+            { from: 'vi', to: 'bna', label: 'Vietnamese - Bahnar' },
+            { from: 'bna', to: 'vi', label: 'Bahnar - Vietnamese' },
+            { from: 'vi', to: 'ede', label: 'Vietnamese - Ê-đê' },
+            { from: 'ede', to: 'vi', label: 'Ê-đê - Vietnamese' },
+            { from: 'vi', to: 'en', label: 'Vietnamese - English' },
+            { from: 'en', to: 'vi', label: 'English - Vietnamese' },
+          ].map((pair, idx) => (
+            <div
+              key={idx}
+              className="dict-card"
+              onClick={() => {
+                setSourceLang(pair.from as any);
+                setTargetLang(pair.to as any);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            >
+              <div className="dict-card-info">
+                <span className="dict-card-type">Dictionary</span>
+                <span className="dict-card-name">{pair.label}</span>
+              </div>
+              <div className="dict-card-arrow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* ── Footer ────────────────────────────────────────── */}
-      <footer className="footer">
-        <a href="#" id="rateLink"><IconStar /> Rate Translation</a>
-        <span className="footer-dot">or</span>
-        <a href="#" id="infoLink"><IconInfo /> App Info</a>
+      <footer className="app-footer">
+        <div className="footer-content">
+          <div className="footer-brand">
+            <div className="footer-logo">
+              <span className="logo-icon">🌍</span>
+              <span className="logo-text">EthnicTranslate</span>
+            </div>
+            <p className="footer-tagline">Proudly made with ❤️ in Vietnam</p>
+          </div>
+
+          <div className="footer-links">
+            <div className="link-group">
+              <h4>Tools</h4>
+              <a href="#">Dictionary builder</a>
+              <a href="#">Pronunciation recorder</a>
+              <a href="#">Add translations</a>
+              <a href="#">All dictionaries</a>
+            </div>
+            <div className="link-group">
+              <h4>About</h4>
+              <a href="#">About us</a>
+              <a href="#">Partners</a>
+              <a href="#">Privacy policy</a>
+              <a href="#">Terms of Service</a>
+            </div>
+            <div className="link-group">
+              <h4>Stay in touch</h4>
+              <a href="#">Facebook</a>
+              <a href="#">Twitter</a>
+              <a href="#">Contact</a>
+            </div>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          &copy; 2024 EthnicTranslate. All rights reserved.
+        </div>
       </footer>
 
       {/* ── Toast ─────────────────────────────────────────── */}

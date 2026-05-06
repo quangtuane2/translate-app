@@ -12,3 +12,18 @@ class TranslateResponse(BaseModel):
     sourceLang: str
     targetLang: str
 
+
+class ExampleItem(BaseModel):
+    vi: str
+    ethnic: str
+
+
+class ExampleRequest(BaseModel):
+    text: str
+    sourceLang: str
+    targetLang: str
+
+
+class ExampleResponse(BaseModel):
+    examples: list[ExampleItem]
+

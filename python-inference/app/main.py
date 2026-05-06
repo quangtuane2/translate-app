@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from app.inference.translator import translate
-from app.models.schemas import TranslateRequest, TranslateResponse
+from app.inference.examples import example_extractor
+from app.models.schemas import TranslateRequest, TranslateResponse, ExampleRequest, ExampleResponse
 
 
 app = FastAPI(title="Inference Service", version="1.0.0")
@@ -18,4 +19,14 @@ def internal_translate(req: TranslateRequest) -> TranslateResponse:
         sourceLang=req.sourceLang,
         targetLang=req.targetLang,
     )
+
+
+@app.post("/internal/examples", response_model=ExampleResponse)
+def internal_examples(req: ExampleRequest) -> ExampleResponse:
+    examples = example_extractor.get_examples(
+        query=req.text,
+        source_lang=req.sourceLang,
+        target_lang=req.targetLang
+    )
+    return ExampleResponse(examples=examples)
 

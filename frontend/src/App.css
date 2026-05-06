@@ -99,9 +99,9 @@ body {
 .card {
   width: 95%;
   max-width: 1100px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: var(--radius-card);
   box-shadow:
@@ -138,7 +138,7 @@ body {
   position: relative;
   display: flex;
   align-items: center;
-  background: #f8f9ff;
+  background: rgba(248, 249, 255, 0.4);
   border: 1.5px solid var(--border);
   border-radius: 12px;
   padding: 0 12px;
@@ -208,7 +208,7 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  background: #f8f9ff;
+  background: rgba(248, 249, 255, 0.4);
   cursor: pointer;
   transition: background var(--transition), border-color var(--transition), transform var(--transition);
   font-family: 'Inter', sans-serif;
@@ -276,7 +276,7 @@ textarea {
   font-size: 15px;
   font-family: 'Inter', sans-serif;
   line-height: 1.6;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.3);
   color: var(--text);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
@@ -333,7 +333,7 @@ textarea:focus {
 }
 
 .output-area textarea {
-  background: var(--output-bg);
+  background: rgba(238, 242, 255, 0.4);
   border-color: #c7d2fe;
   color: var(--indigo-dark);
   font-weight: 500;
@@ -410,7 +410,7 @@ textarea:focus {
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  background: #f3f4f6;
+  background: rgba(243, 244, 246, 0.4);
   cursor: pointer;
   font-family: 'Inter', sans-serif;
   transition: background var(--transition), border-color var(--transition);
@@ -565,5 +565,286 @@ textarea:focus {
   .btn-translate {
     flex: 1;
     justify-content: center;
+  }
+}
+
+/* ── Dictionary & Examples ─────────────────────────────── */
+.examples-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1.5px solid var(--border);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.examples-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--indigo-dark);
+  margin-bottom: 16px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.examples-title svg {
+  color: var(--indigo-mid);
+}
+
+.examples-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted);
+  padding: 12px 0;
+}
+
+.examples-loading .spinner {
+  border-color: rgba(55, 48, 163, 0.2);
+  border-top-color: var(--indigo-mid);
+}
+
+.examples-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.example-item {
+  background: #f8faff;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 12px 16px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.example-item:hover {
+  transform: translateX(4px);
+  border-color: var(--indigo-mid);
+  background: #fff;
+}
+
+.example-vi {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.example-vi .bullet {
+  color: var(--indigo-mid);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.example-ethnic {
+  font-size: 14px;
+  color: var(--indigo-mid);
+  font-weight: 500;
+  margin-left: 20px;
+  font-style: italic;
+}
+
+.examples-empty {
+  font-size: 14px;
+  color: var(--muted);
+  padding: 12px 16px;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 1px dashed var(--border);
+  text-align: center;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Popular Dictionaries ─────────────────────────── */
+.popular-section {
+  width: 95%;
+  max-width: 1100px;
+  margin: 40px auto;
+  text-align: center;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 300;
+  color: var(--text);
+  margin-bottom: 24px;
+  letter-spacing: -0.5px;
+}
+
+.popular-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.dict-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: left;
+}
+
+.dict-card:hover {
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+  border-color: var(--indigo-mid);
+}
+
+.dict-card-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.dict-card-type {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.dict-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--indigo-dark);
+}
+
+.dict-card-arrow {
+  color: var(--indigo-mid);
+  width: 18px;
+  height: 18px;
+  opacity: 0.5;
+  transition: opacity var(--transition), transform var(--transition);
+}
+
+.dict-card:hover .dict-card-arrow {
+  opacity: 1;
+  transform: translateX(3px);
+}
+
+/* ── Footer ────────────────────────────────────────── */
+.app-footer {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  margin-top: 60px;
+  padding: 60px 0 30px;
+}
+
+.footer-content {
+  width: 95%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.5fr 3fr;
+  gap: 60px;
+}
+
+.footer-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.footer-logo .logo-icon {
+  font-size: 24px;
+}
+
+.footer-logo .logo-text {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--indigo-dark);
+  letter-spacing: -0.5px;
+}
+
+.footer-tagline {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.footer-links {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+}
+
+.link-group h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+.link-group a {
+  display: block;
+  font-size: 14px;
+  color: var(--indigo-mid);
+  text-decoration: none;
+  margin-bottom: 12px;
+  transition: color var(--transition);
+}
+
+.link-group a:hover {
+  color: var(--indigo-dark);
+  text-decoration: underline;
+}
+
+.footer-bottom {
+  width: 95%;
+  max-width: 1100px;
+  margin: 60px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .footer-content {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .footer-links {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .footer-links {
+    grid-template-columns: 1fr;
   }
 }
