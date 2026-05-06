@@ -90,6 +90,16 @@ const IconKeyboard = () => (
   </svg>
 )
 
+const IconMic = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" y1="19" x2="12" y2="23" />
+    <line x1="8" y1="23" x2="16" y2="23" />
+  </svg>
+)
+
 export default function App() {
   const [sourceLang, setSourceLang] = useState<LangCode>('vi')
   const [targetLang, setTargetLang] = useState<LangCode>('bna')
@@ -100,6 +110,7 @@ export default function App() {
   const [loadingExamples, setLoadingExamples] = useState<boolean>(false)
   const [error, setError] = useState<string>('')
   const [showKeyboard, setShowKeyboard] = useState<boolean>(false)
+  const [isListening, setIsListening] = useState<boolean>(false)
   const [toast, setToast] = useState<boolean>(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -149,9 +160,10 @@ export default function App() {
     }
   }
 
-  const doTranslate = async () => {
+  const doTranslate = async (overrideText?: string) => {
     setError('')
-    const clean = inputText.trim()
+    const textToUse = overrideText !== undefined ? overrideText : inputText
+    const clean = textToUse.trim()
     if (!clean) { setError('Vui lòng nhập văn bản để dịch.'); return }
     if (sourceLang === targetLang) { setError('Ngôn ngữ nguồn và đích không được giống nhau.'); return }
 
@@ -163,7 +175,7 @@ export default function App() {
       const resp = await fetch('/api/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: inputText, sourceLang, targetLang }),
+        body: JSON.stringify({ text: textToUse, sourceLang, targetLang }),
       })
       if (!resp.ok) {
         const err = (await resp.json().catch(() => null)) as ApiError | null
@@ -220,6 +232,40 @@ export default function App() {
     debounceTimer.current = setTimeout(() => {
       void fetchExamples(val, sourceLang, targetLang)
     }, 600) // Wait 600ms after user stops typing
+  }
+
+  const toggleListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      setError('Trình duyệt của bạn không hỗ trợ nhận diện giọng nói.')
+      return
+    }
+
+    if (isListening) {
+      setIsListening(false)
+      return
+    }
+
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'vi-VN'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+
+    recognition.onstart = () => setIsListening(true)
+    recognition.onend = () => setIsListening(false)
+    recognition.onerror = () => {
+      setIsListening(false)
+      setError('Có lỗi khi thu âm. Vui lòng kiểm tra micro.')
+    }
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript
+      handleInputChange(transcript)
+      // Call translate with the direct transcript to avoid state lag
+      void doTranslate(transcript)
+    }
+
+    recognition.start()
   }
 
   const handleSourceChange = (val: LangCode) => {
@@ -344,6 +390,17 @@ export default function App() {
               >
                 <IconCopy />
               </button>
+              {sourceLang === 'vi' && (
+                <button
+                  id="micBtn"
+                  className={`btn-mic-inline${isListening ? ' listening' : ''}`}
+                  type="button"
+                  title="Thu âm tiếng Việt"
+                  onClick={toggleListening}
+                >
+                  <IconMic />
+                </button>
+              )}
               <span className="char-count">{charCount}/{MAX_CHARS}</span>
             </div>
           </div>

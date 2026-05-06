@@ -398,6 +398,50 @@ textarea:focus {
   display: block;
 }
 
+/* Mic icon inside input */
+.btn-mic-inline {
+  position: absolute;
+  bottom: 8px;
+  right: 115px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--indigo-mid);
+  opacity: 0.6;
+  transition: all var(--transition);
+  padding: 4px;
+  border-radius: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-mic-inline:hover {
+  opacity: 1;
+  background: #f3f4f6;
+  transform: scale(1.15);
+}
+
+.btn-mic-inline.listening {
+  color: #ef4444;
+  opacity: 1;
+  background: #fee2e2;
+  animation: pulse-mic 1.5s infinite;
+}
+
+.btn-mic-inline svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+@keyframes pulse-mic {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
 /* ── Error box ──────────────────────────────────────────── */
 .error-box {
   margin-bottom: 12px;
