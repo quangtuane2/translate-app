@@ -123,3 +123,16 @@ mvn install
 # dowloand model AI
 https://drive.google.com/drive/folders/1M5o-T0alc5zGt8IGBH5am4ew7Ej5kxlO?usp=sharing
 # lưu tất cả các model vào đường dẫn sau: python-inference/models/
+
+## 5. Huấn luyện mô hình Speech-to-Text (STT) Tiếng Việt trên Google Colab
+
+Trong thư mục `notebooks/` của dự án đã có sẵn 2 file Jupyter Notebook phục vụ cho việc huấn luyện nhận dạng giọng nói:
+
+1. `train_stt_vietnamese_finetune.ipynb`: Dùng để fine-tune từ mô hình `vinai/PhoWhisper-small` (Đề xuất sử dụng vì tối ưu, nhanh và hiệu quả).
+2. `train_stt_vietnamese_from_scratch.ipynb`: Dùng để huấn luyện mô hình Whisper từ đầu (Cần rất nhiều dữ liệu, chủ yếu dùng để nghiên cứu).
+
+**Cách sử dụng:**
+- Tải (upload) file `.ipynb` bạn muốn lên [Google Colab](https://colab.research.google.com/).
+- Bật GPU: Chọn `Runtime` -> `Change runtime type` -> Chọn `T4 GPU`.
+- Chạy từng cell trong notebook. Model sau khi train sẽ được tự động lưu về Google Drive của bạn.
+- Sau khi có model, bạn có thể tải từ Drive về thư mục `python-inference/models/` để sử dụng.

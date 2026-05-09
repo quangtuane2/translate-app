@@ -4,8 +4,8 @@ from .segmenter import Segmenter
 # Load Segmenter
 # __file__ is translate-app/python-inference/app/inference/translator.py
 base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-dict_vi_path = os.path.join(base_dir, "dataset", "dictionary", "dict.vi")
-dict_ba_path = os.path.join(base_dir, "dataset", "dictionary", "dict.ba")
+dict_vi_path = os.path.join(base_dir, "dataset", "dataset-Bahnaric", "dictionary", "dict.vi")
+dict_ba_path = os.path.join(base_dir, "dataset", "dataset-Bahnaric", "dictionary", "dict.ba")
 segmenter = Segmenter(dict_vi_path, dict_ba_path)
 
 import gc
