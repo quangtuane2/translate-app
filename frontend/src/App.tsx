@@ -117,6 +117,21 @@ const IconHistory = () => (
   </svg>
 )
 
+const IconSpeaker = ({ isSpeaking = false }: { isSpeaking?: boolean }) => (
+  <svg viewBox="0 0 24 24" fill={isSpeaking ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"
+    strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    {!isSpeaking ? (
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    ) : (
+      <>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+      </>
+    )}
+  </svg>
+)
+
 const IconStar = ({ filled }: { filled?: boolean }) => (
   <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2"
     strokeLinecap="round" strokeLinejoin="round">
@@ -143,6 +158,8 @@ export default function App() {
   const [error, setError] = useState<string>('')
   const [showKeyboard, setShowKeyboard] = useState<boolean>(false)
   const [isListening, setIsListening] = useState<boolean>(false)
+  const [isSpeakingInput, setIsSpeakingInput] = useState<boolean>(false)
+  const [isSpeakingOutput, setIsSpeakingOutput] = useState<boolean>(false)
   const [history, setHistory] = useState<HistoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('translate_history')
@@ -360,6 +377,28 @@ export default function App() {
     recognition.start()
   }
 
+  const handleSpeak = (text: string, isInput: boolean) => {
+    if (!text.trim()) return;
+    
+    // Stop any current speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'vi-VN';
+    
+    utterance.onstart = () => isInput ? setIsSpeakingInput(true) : setIsSpeakingOutput(true);
+    utterance.onend = () => {
+      setIsSpeakingInput(false);
+      setIsSpeakingOutput(false);
+    };
+    utterance.onerror = () => {
+      setIsSpeakingInput(false);
+      setIsSpeakingOutput(false);
+    };
+    
+    window.speechSynthesis.speak(utterance);
+  }
+
   const toggleFavorite = (item: HistoryItem) => {
     setFavorites(prev => {
       // Check by content and language to sync across form/history
@@ -516,15 +555,25 @@ export default function App() {
                 <IconCopy />
               </button>
               {sourceLang === 'vi' && (
-                <button
-                  id="micBtn"
-                  className={`btn-mic-inline${isListening ? ' listening' : ''}`}
-                  type="button"
-                  title="Thu âm tiếng Việt"
-                  onClick={toggleListening}
-                >
-                  <IconMic />
-                </button>
+                <>
+                  <button
+                    id="micBtn"
+                    className={`btn-mic-inline${isListening ? ' listening' : ''}`}
+                    type="button"
+                    title="Thu âm tiếng Việt"
+                    onClick={toggleListening}
+                  >
+                    <IconMic />
+                  </button>
+                  <button
+                    className={`btn-speaker-inline-input ${isSpeakingInput ? 'speaking' : ''}`}
+                    type="button"
+                    title="Đọc phát âm"
+                    onClick={() => handleSpeak(inputText, true)}
+                  >
+                    <IconSpeaker isSpeaking={isSpeakingInput} />
+                  </button>
+                </>
               )}
               <span className="char-count">{charCount}/{MAX_CHARS}</span>
             </div>
@@ -561,6 +610,16 @@ export default function App() {
               >
                 <IconStar filled={isFavorited(inputText, outputText, targetLang)} />
               </button>
+              {targetLang === 'vi' && (
+                <button
+                  className={`btn-speaker-inline-output ${isSpeakingOutput ? 'speaking' : ''}`}
+                  type="button"
+                  title="Đọc phát âm"
+                  onClick={() => handleSpeak(outputText, false)}
+                >
+                  <IconSpeaker isSpeaking={isSpeakingOutput} />
+                </button>
+              )}
             </div>
           </div>
         </div>
