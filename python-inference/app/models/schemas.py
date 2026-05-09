@@ -27,3 +27,11 @@ class ExampleRequest(BaseModel):
 class ExampleResponse(BaseModel):
     examples: list[ExampleItem]
 
+
+class TtsRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=5000)
+    lang: str = Field(default="vi")
+
+
+class TtsResponse(BaseModel):
+    audioBase64: str

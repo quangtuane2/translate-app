@@ -4,6 +4,8 @@ import com.example.translate.dto.TranslateRequest;
 import com.example.translate.dto.TranslateResponse;
 import com.example.translate.dto.ExampleRequest;
 import com.example.translate.dto.ExampleResponse;
+import com.example.translate.dto.TtsRequest;
+import com.example.translate.dto.TtsResponse;
 import com.example.translate.exception.UpstreamServiceException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -61,6 +63,26 @@ public class TranslateService {
 
         try {
             ResponseEntity<ExampleResponse> resp = restTemplate.postForEntity(url, entity, ExampleResponse.class);
+            return resp.getBody();
+        } catch (HttpStatusCodeException ex) {
+            String body = ex.getResponseBodyAsString();
+            int status = ex.getStatusCode().value();
+            throw new UpstreamServiceException(body != null ? body : "Python service error", status);
+        } catch (RestClientException ex) {
+            throw new UpstreamServiceException("Python service unavailable", 502);
+        }
+    }
+
+    public TtsResponse getTts(TtsRequest req) {
+        String url = pythonBaseUrl + "/internal/tts";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<TtsRequest> entity = new HttpEntity<>(req, headers);
+
+        try {
+            ResponseEntity<TtsResponse> resp = restTemplate.postForEntity(url, entity, TtsResponse.class);
             return resp.getBody();
         } catch (HttpStatusCodeException ex) {
             String body = ex.getResponseBodyAsString();

@@ -1,4 +1,5 @@
 fastapi==0.135.2
 uvicorn[standard]==0.42.0
 pydantic==2.12.5
+gTTS==2.5.1
 

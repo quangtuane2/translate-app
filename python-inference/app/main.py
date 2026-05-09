@@ -1,7 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from app.inference.translator import translate
 from app.inference.examples import example_extractor
-from app.models.schemas import TranslateRequest, TranslateResponse, ExampleRequest, ExampleResponse
+from app.models.schemas import TranslateRequest, TranslateResponse, ExampleRequest, ExampleResponse, TtsRequest, TtsResponse
+from gtts import gTTS
+import base64
+from io import BytesIO
 
 
 app = FastAPI(title="Inference Service", version="1.0.0")
@@ -29,4 +32,19 @@ def internal_examples(req: ExampleRequest) -> ExampleResponse:
         target_lang=req.targetLang
     )
     return ExampleResponse(examples=examples)
+
+@app.post("/internal/tts", response_model=TtsResponse)
+def internal_tts(req: TtsRequest) -> TtsResponse:
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Text must not be empty.")
+    try:
+        tts = gTTS(text=text, lang=req.lang)
+        fp = BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        audio_base64 = base64.b64encode(fp.read()).decode("utf-8")
+        return TtsResponse(audioBase64=audio_base64)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 

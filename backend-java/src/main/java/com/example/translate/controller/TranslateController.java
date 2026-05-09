@@ -4,6 +4,8 @@ import com.example.translate.dto.TranslateRequest;
 import com.example.translate.dto.TranslateResponse;
 import com.example.translate.dto.ExampleRequest;
 import com.example.translate.dto.ExampleResponse;
+import com.example.translate.dto.TtsRequest;
+import com.example.translate.dto.TtsResponse;
 import com.example.translate.service.TranslateService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +35,12 @@ public class TranslateController {
     @PostMapping("/examples")
     public ResponseEntity<ExampleResponse> getExamples(@Valid @RequestBody ExampleRequest req) {
         ExampleResponse resp = translateService.getExamples(req);
+        return ResponseEntity.ok(resp);
+    }
+
+    @PostMapping("/tts")
+    public ResponseEntity<TtsResponse> getTts(@Valid @RequestBody TtsRequest req) {
+        TtsResponse resp = translateService.getTts(req);
         return ResponseEntity.ok(resp);
     }
 }

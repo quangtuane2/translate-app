@@ -177,6 +177,7 @@ export default function App() {
   const [toast, setToast] = useState<boolean>(false)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const currentAudio = useRef<HTMLAudioElement | null>(null)
 
   /* Show toast then hide after 2 s */
   const showToast = () => {
@@ -232,7 +233,7 @@ export default function App() {
     }
   }
 
-  const doTranslate = async (overrideText?: string) => {
+  const doTranslate = async (overrideText?: string, saveToHistory: boolean = true) => {
     setError('')
     const textToUse = overrideText !== undefined ? overrideText : inputText
     const clean = textToUse.trim()
@@ -261,7 +262,7 @@ export default function App() {
       setOutputText(resultText)
 
       // Add to History
-      if (resultText && clean) {
+      if (saveToHistory && resultText && clean) {
         const newItem: HistoryItem = {
           id: Date.now().toString(),
           sourceText: clean,
@@ -317,10 +318,15 @@ export default function App() {
   const handleInputChange = (val: string) => {
     setInputText(val)
     setError('')
-    // Debounce fetching examples
+    // Debounce fetching examples and auto-translating
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(() => {
       void fetchExamples(val, sourceLang, targetLang)
+      if (val.trim()) {
+        void doTranslate(val, false) // Auto-translate but don't save to history
+      } else {
+        setOutputText('')
+      }
     }, 600) // Wait 600ms after user stops typing
   }
 
@@ -369,34 +375,71 @@ export default function App() {
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript
-      handleInputChange(transcript)
-      // Call translate with the direct transcript to avoid state lag
-      void doTranslate(transcript)
+      setInputText(transcript)
+      // Call translate directly and save to history
+      void doTranslate(transcript, true)
+      void fetchExamples(transcript, sourceLang, targetLang)
     }
 
     recognition.start()
   }
 
-  const handleSpeak = (text: string, isInput: boolean) => {
+  const handleSpeak = async (text: string, isInput: boolean) => {
     if (!text.trim()) return;
     
-    // Stop any current speech
+    // Stop any ongoing speech
     window.speechSynthesis.cancel();
+    if (currentAudio.current) {
+      currentAudio.current.pause();
+      currentAudio.current.currentTime = 0;
+    }
     
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'vi-VN';
-    
-    utterance.onstart = () => isInput ? setIsSpeakingInput(true) : setIsSpeakingOutput(true);
-    utterance.onend = () => {
+    // If clicking on the currently speaking one, just stop it and return
+    if ((isInput && isSpeakingInput) || (!isInput && isSpeakingOutput)) {
       setIsSpeakingInput(false);
       setIsSpeakingOutput(false);
-    };
-    utterance.onerror = () => {
-      setIsSpeakingInput(false);
-      setIsSpeakingOutput(false);
-    };
+      return;
+    }
+
+    setIsSpeakingInput(false);
+    setIsSpeakingOutput(false);
     
-    window.speechSynthesis.speak(utterance);
+    try {
+      if (isInput) setIsSpeakingInput(true);
+      else setIsSpeakingOutput(true);
+
+      const resp = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, lang: 'vi' }),
+      });
+
+      if (!resp.ok) {
+        throw new Error('TTS Failed');
+      }
+
+      const data = await resp.json();
+      const audioBase64 = data.audioBase64;
+      
+      const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+      currentAudio.current = audio;
+      
+      audio.onended = () => {
+        if (isInput) setIsSpeakingInput(false);
+        else setIsSpeakingOutput(false);
+      };
+      audio.onerror = () => {
+        if (isInput) setIsSpeakingInput(false);
+        else setIsSpeakingOutput(false);
+      };
+      audio.play();
+
+    } catch (err) {
+      console.error(err);
+      if (isInput) setIsSpeakingInput(false);
+      else setIsSpeakingOutput(false);
+      setError('Lỗi khi tải âm thanh. Vui lòng thử lại.');
+    }
   }
 
   const toggleFavorite = (item: HistoryItem) => {
@@ -535,7 +578,7 @@ export default function App() {
                 maxLength={MAX_CHARS}
                 onChange={(e) => handleInputChange(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void doTranslate()
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void doTranslate(undefined, true)
                 }}
               />
               <button
@@ -666,7 +709,7 @@ export default function App() {
             className="btn-translate"
             type="button"
             disabled={loading}
-            onClick={() => void doTranslate()}
+            onClick={() => void doTranslate(undefined, true)}
           >
             {loading
               ? <><span className="spinner" /> Đang dịch...</>
