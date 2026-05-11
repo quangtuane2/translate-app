@@ -120,6 +120,6 @@ npm install
 cd ../backend-java
 mvn install
 
-# dowloand model AI
+# 5. Download model AI
 https://drive.google.com/drive/folders/1M5o-T0alc5zGt8IGBH5am4ew7Ej5kxlO?usp=sharing
 # lưu tất cả các model vào đường dẫn sau: python-inference/models/
