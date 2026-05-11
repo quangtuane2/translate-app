@@ -386,14 +386,14 @@ export default function App() {
 
   const handleSpeak = async (text: string, isInput: boolean) => {
     if (!text.trim()) return;
-    
+
     // Stop any ongoing speech
     window.speechSynthesis.cancel();
     if (currentAudio.current) {
       currentAudio.current.pause();
       currentAudio.current.currentTime = 0;
     }
-    
+
     // If clicking on the currently speaking one, just stop it and return
     if ((isInput && isSpeakingInput) || (!isInput && isSpeakingOutput)) {
       setIsSpeakingInput(false);
@@ -403,7 +403,7 @@ export default function App() {
 
     setIsSpeakingInput(false);
     setIsSpeakingOutput(false);
-    
+
     try {
       if (isInput) setIsSpeakingInput(true);
       else setIsSpeakingOutput(true);
@@ -420,10 +420,10 @@ export default function App() {
 
       const data = await resp.json();
       const audioBase64 = data.audioBase64;
-      
+
       const audio = new Audio(`data:audio/mp3;base64,${audioBase64}`);
       currentAudio.current = audio;
-      
+
       audio.onended = () => {
         if (isInput) setIsSpeakingInput(false);
         else setIsSpeakingOutput(false);
@@ -445,9 +445,9 @@ export default function App() {
   const toggleFavorite = (item: HistoryItem) => {
     setFavorites(prev => {
       // Check by content and language to sync across form/history
-      const isFav = prev.find(f => 
-        f.sourceText === item.sourceText && 
-        f.targetText === item.targetText && 
+      const isFav = prev.find(f =>
+        f.sourceText === item.sourceText &&
+        f.targetText === item.targetText &&
         f.targetLang === item.targetLang
       )
       if (isFav) {
@@ -458,9 +458,9 @@ export default function App() {
   }
 
   const isFavorited = (sText: string, tText: string, tLang: LangCode) => {
-    return !!favorites.find(f => 
-      f.sourceText === sText.trim() && 
-      f.targetText === tText.trim() && 
+    return !!favorites.find(f =>
+      f.sourceText === sText.trim() &&
+      f.targetText === tText.trim() &&
       f.targetLang === tLang
     )
   }
@@ -598,26 +598,24 @@ export default function App() {
                 <IconCopy />
               </button>
               {sourceLang === 'vi' && (
-                <>
-                  <button
-                    id="micBtn"
-                    className={`btn-mic-inline${isListening ? ' listening' : ''}`}
-                    type="button"
-                    title="Thu âm tiếng Việt"
-                    onClick={toggleListening}
-                  >
-                    <IconMic />
-                  </button>
-                  <button
-                    className={`btn-speaker-inline-input ${isSpeakingInput ? 'speaking' : ''}`}
-                    type="button"
-                    title="Đọc phát âm"
-                    onClick={() => handleSpeak(inputText, true)}
-                  >
-                    <IconSpeaker isSpeaking={isSpeakingInput} />
-                  </button>
-                </>
+                <button
+                  id="micBtn"
+                  className={`btn-mic-inline${isListening ? ' listening' : ''}`}
+                  type="button"
+                  title="Thu âm tiếng Việt"
+                  onClick={toggleListening}
+                >
+                  <IconMic />
+                </button>
               )}
+              <button
+                className={`btn-speaker-inline-input ${isSpeakingInput ? 'speaking' : ''}`}
+                type="button"
+                title="Đọc phát âm"
+                onClick={() => handleSpeak(inputText, true)}
+              >
+                <IconSpeaker isSpeaking={isSpeakingInput} />
+              </button>
               <span className="char-count">{charCount}/{MAX_CHARS}</span>
             </div>
           </div>
@@ -653,16 +651,14 @@ export default function App() {
               >
                 <IconStar filled={isFavorited(inputText, outputText, targetLang)} />
               </button>
-              {targetLang === 'vi' && (
-                <button
-                  className={`btn-speaker-inline-output ${isSpeakingOutput ? 'speaking' : ''}`}
-                  type="button"
-                  title="Đọc phát âm"
-                  onClick={() => handleSpeak(outputText, false)}
-                >
-                  <IconSpeaker isSpeaking={isSpeakingOutput} />
-                </button>
-              )}
+              <button
+                className={`btn-speaker-inline-output ${isSpeakingOutput ? 'speaking' : ''}`}
+                type="button"
+                title="Đọc phát âm"
+                onClick={() => handleSpeak(outputText, false)}
+              >
+                <IconSpeaker isSpeaking={isSpeakingOutput} />
+              </button>
             </div>
           </div>
         </div>
@@ -785,7 +781,7 @@ export default function App() {
                     <div className="item-target">{item.targetText}</div>
                   </div>
                   <div className="item-actions">
-                    <button 
+                    <button
                       className={`btn-star ${isFavorited(item.sourceText, item.targetText, item.targetLang) ? 'active' : ''}`}
                       onClick={() => toggleFavorite(item)}
                     >

@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from app.inference.translator import translate
 from app.inference.examples import example_extractor
 from app.models.schemas import TranslateRequest, TranslateResponse, ExampleRequest, ExampleResponse, TtsRequest, TtsResponse
+from app.inference.tts_phonetics import convert_to_vietnamese_phonetics
 from gtts import gTTS
 import base64
 from io import BytesIO
@@ -39,7 +40,9 @@ def internal_tts(req: TtsRequest) -> TtsResponse:
     if not text:
         raise HTTPException(status_code=400, detail="Text must not be empty.")
     try:
-        tts = gTTS(text=text, lang=req.lang)
+        tts_text = convert_to_vietnamese_phonetics(text, req.lang)
+        tts_lang = "vi" if req.lang in ["bana", "ede"] else req.lang
+        tts = gTTS(text=tts_text, lang=tts_lang)
         fp = BytesIO()
         tts.write_to_fp(fp)
         fp.seek(0)
