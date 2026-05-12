@@ -200,14 +200,14 @@ export default function App() {
   const [showHistory, setShowHistory] = useState<boolean>(false)
   const [showFavorites, setShowFavorites] = useState<boolean>(false)
   const [toast, setToast] = useState<boolean>(false)
-  
+
   const [translateMode, setTranslateMode] = useState<'text' | 'image'>('text')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [ocrBlocks, setOcrBlocks] = useState<OcrBlock[]>([])
   const [showOriginalImage, setShowOriginalImage] = useState<boolean>(false)
   const [isOcrProcessing, setIsOcrProcessing] = useState<boolean>(false)
-  const [imageScale, setImageScale] = useState({x: 1, y: 1});
+  const [imageScale, setImageScale] = useState({ x: 1, y: 1 });
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -218,7 +218,7 @@ export default function App() {
     if (imageRef.current) {
       const scaleX = imageRef.current.clientWidth / imageRef.current.naturalWidth;
       const scaleY = imageRef.current.clientHeight / imageRef.current.naturalHeight;
-      setImageScale({x: scaleX, y: scaleY});
+      setImageScale({ x: scaleX, y: scaleY });
     }
   }
 
@@ -302,6 +302,50 @@ export default function App() {
     setImagePreviewUrl(null);
     setOcrBlocks([]);
     setError('');
+  };
+
+  const downloadTranslatedImage = () => {
+    if (!imageRef.current || !imageFile) return;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = imageRef.current;
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+
+    // Draw original image
+    ctx.drawImage(img, 0, 0);
+
+    // Draw OCR blocks if not showing original
+    if (!showOriginalImage) {
+      ocrBlocks.forEach(block => {
+        // Background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillRect(block.x, block.y, block.width, block.height);
+
+        // Text
+        ctx.fillStyle = '#111';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
+
+        // Calculate font size
+        const fontSize = Math.max(10, block.height * 0.7);
+        ctx.font = `500 ${fontSize}px Inter, sans-serif`;
+
+        const centerX = block.x + block.width / 2;
+        const centerY = block.y + block.height / 2;
+        ctx.fillText(block.translatedText, centerX, centerY, block.width - 4);
+      });
+    }
+
+    // Trigger download
+    const url = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `translated_${imageFile.name}`;
+    a.click();
   };
 
   /* ── Handlers ──────────────────────────────────────────── */
@@ -680,110 +724,113 @@ export default function App() {
         {/* ── Text panes or Image pane ──────────────────── */}
         {translateMode === 'text' ? (
           <div className="panes">
-          {/* Input */}
-          <div className="pane">
-            <div className="pane-title">
-              <img src={srcMeta.flag} alt="" className="pane-flag" />
-              {paneTitle(sourceLang)}
-            </div>
-            <div className="textarea-wrap">
-              <textarea
-                id="inputText"
-                placeholder="Nhập văn bản..."
-                value={inputText}
-                maxLength={MAX_CHARS}
-                onChange={(e) => handleInputChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void doTranslate(undefined, true)
-                }}
-              />
-              <button
-                id="clearInlineBtn"
-                className={`btn-clear-inline${inputText ? ' visible' : ''}`}
-                type="button"
-                title="Xóa văn bản"
-                onClick={clearAll}
-              >✕</button>
-              <button
-                id="copyInputInlineBtn"
-                className="btn-copy-inline-input"
-                type="button"
-                title="Copy văn bản gốc"
-                onClick={() => void copyInput()}
-              >
-                <IconCopy />
-              </button>
-              {sourceLang === 'vi' && (
+            {/* Input */}
+            <div className="pane">
+              <div className="pane-title">
+                <img src={srcMeta.flag} alt="" className="pane-flag" />
+                {paneTitle(sourceLang)}
+              </div>
+              <div className="textarea-wrap">
+                <textarea
+                  id="inputText"
+                  placeholder="Nhập văn bản..."
+                  value={inputText}
+                  maxLength={MAX_CHARS}
+                  onChange={(e) => handleInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void doTranslate(undefined, true)
+                  }}
+                />
                 <button
-                  id="micBtn"
-                  className={`btn-mic-inline${isListening ? ' listening' : ''}`}
+                  id="clearInlineBtn"
+                  className={`btn-clear-inline${inputText ? ' visible' : ''}`}
                   type="button"
-                  title="Thu âm tiếng Việt"
-                  onClick={toggleListening}
+                  title="Xóa văn bản"
+                  onClick={clearAll}
+                >✕</button>
+                <button
+                  id="copyInputInlineBtn"
+                  className="btn-copy-inline-input"
+                  type="button"
+                  title="Copy văn bản gốc"
+                  onClick={() => void copyInput()}
                 >
-                  <IconMic />
+                  <IconCopy />
                 </button>
-              )}
-              <button
-                className={`btn-speaker-inline-input ${isSpeakingInput ? 'speaking' : ''}`}
-                type="button"
-                title="Đọc phát âm"
-                onClick={() => handleSpeak(inputText, true)}
-              >
-                <IconSpeaker isSpeaking={isSpeakingInput} />
-              </button>
-              <span className="char-count">{charCount}/{MAX_CHARS}</span>
+                {sourceLang === 'vi' && (
+                  <button
+                    id="micBtn"
+                    className={`btn-mic-inline${isListening ? ' listening' : ''}`}
+                    type="button"
+                    title="Thu âm tiếng Việt"
+                    onClick={toggleListening}
+                  >
+                    <IconMic />
+                  </button>
+                )}
+                <button
+                  className={`btn-speaker-inline-input ${isSpeakingInput ? 'speaking' : ''}`}
+                  type="button"
+                  title="Đọc phát âm"
+                  onClick={() => handleSpeak(inputText, true)}
+                >
+                  <IconSpeaker isSpeaking={isSpeakingInput} />
+                </button>
+                <span className="char-count">{charCount}/{MAX_CHARS}</span>
+              </div>
             </div>
-          </div>
 
-          {/* Output */}
-          <div className="pane">
-            <div className="pane-title">
-              <img src={tgtMeta.flag} alt="" className="pane-flag" />
-              {paneTitle(targetLang)}
-            </div>
-            <div className="textarea-wrap output-area">
-              <textarea
-                id="outputText"
-                placeholder="Kết quả sẽ hiển thị ở đây..."
-                value={outputText}
-                readOnly
-              />
-              <button
-                id="copyInlineBtn"
-                className="btn-copy-inline"
-                type="button"
-                title="Copy kết quả"
-                onClick={() => void copyOutput()}
-              >
-                <IconCopy />
-              </button>
-              <button
-                id="favInlineBtn"
-                className={`btn-fav-inline ${isFavorited(inputText, outputText, targetLang) ? 'active' : ''}`}
-                type="button"
-                title="Lưu vào yêu thích"
-                onClick={saveCurrentToFavorites}
-              >
-                <IconStar filled={isFavorited(inputText, outputText, targetLang)} />
-              </button>
-              <button
-                className={`btn-speaker-inline-output ${isSpeakingOutput ? 'speaking' : ''}`}
-                type="button"
-                title="Đọc phát âm"
-                onClick={() => handleSpeak(outputText, false)}
-              >
-                <IconSpeaker isSpeaking={isSpeakingOutput} />
-              </button>
+            {/* Output */}
+            <div className="pane">
+              <div className="pane-title">
+                <img src={tgtMeta.flag} alt="" className="pane-flag" />
+                {paneTitle(targetLang)}
+              </div>
+              <div className="textarea-wrap output-area">
+                <textarea
+                  id="outputText"
+                  placeholder="Kết quả sẽ hiển thị ở đây..."
+                  value={outputText}
+                  readOnly
+                />
+                <button
+                  id="copyInlineBtn"
+                  className="btn-copy-inline"
+                  type="button"
+                  title="Copy kết quả"
+                  onClick={() => void copyOutput()}
+                >
+                  <IconCopy />
+                </button>
+                <button
+                  id="favInlineBtn"
+                  className={`btn-fav-inline ${isFavorited(inputText, outputText, targetLang) ? 'active' : ''}`}
+                  type="button"
+                  title="Lưu vào yêu thích"
+                  onClick={saveCurrentToFavorites}
+                >
+                  <IconStar filled={isFavorited(inputText, outputText, targetLang)} />
+                </button>
+                <button
+                  className={`btn-speaker-inline-output ${isSpeakingOutput ? 'speaking' : ''}`}
+                  type="button"
+                  title="Đọc phát âm"
+                  onClick={() => handleSpeak(outputText, false)}
+                >
+                  <IconSpeaker isSpeaking={isSpeakingOutput} />
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         ) : (
           <div className="image-pane">
             {imagePreviewUrl && (
               <div className="image-pane-header" style={{ display: 'flex', alignItems: 'center', padding: '10px 15px', background: '#f8f9fa', borderBottom: '1px solid #e1e4e8', borderRadius: '12px 12px 0 0' }}>
-                <button className="btn-secondary" onClick={clearImage} style={{ marginRight: 'auto' }}>
+                <button className="btn-secondary" onClick={clearImage} style={{ marginRight: 10 }}>
                   ✕ Xóa ảnh
+                </button>
+                <button className="btn-secondary" onClick={downloadTranslatedImage} style={{ marginRight: 'auto' }} title="Tải xuống hình ảnh đã dịch">
+                  <IconCopy /> Tải bản dịch
                 </button>
                 <span className="toggle-label" style={{ marginRight: 10, fontSize: 14, fontWeight: 500 }}>Hiện bản gốc</span>
                 <label className="toggle-switch">
@@ -792,9 +839,9 @@ export default function App() {
                 </label>
               </div>
             )}
-            
+
             {!imagePreviewUrl ? (
-              <div 
+              <div
                 className="image-upload-zone"
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
@@ -804,7 +851,7 @@ export default function App() {
                 <p>hoặc</p>
                 <label className="btn-primary" style={{ cursor: 'pointer', padding: '10px 20px', borderRadius: 8, marginTop: 10, display: 'inline-block' }}>
                   Duyệt qua các tệp
-                  <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} />
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} />
                 </label>
               </div>
             ) : (
@@ -815,42 +862,42 @@ export default function App() {
                   </div>
                 )}
                 <div className="image-container" style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
-                   <img 
-                      ref={imageRef}
-                      src={imagePreviewUrl} 
-                      alt="Uploaded" 
-                      onLoad={handleImageLoad}
-                      style={{ maxWidth: '100%', maxHeight: '65vh', display: 'block', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
-                   />
-                   {!showOriginalImage && !isOcrProcessing && ocrBlocks.map((block, idx) => (
-                     <div 
-                        key={idx}
-                        className="ocr-block"
-                        style={{
-                           position: 'absolute',
-                           left: block.x * imageScale.x,
-                           top: block.y * imageScale.y,
-                           width: block.width * imageScale.x,
-                           height: block.height * imageScale.y,
-                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                           color: '#111',
-                           display: 'flex',
-                           alignItems: 'center',
-                           justifyContent: 'center',
-                           overflow: 'hidden',
-                           padding: '2px',
-                           boxSizing: 'border-box',
-                           fontSize: Math.max(10, (block.height * imageScale.y) * 0.7) + 'px',
-                           fontWeight: 500,
-                           borderRadius: 4,
-                           boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                           textAlign: 'center'
-                        }}
-                        title={block.originalText}
-                     >
-                       {block.translatedText}
-                     </div>
-                   ))}
+                  <img
+                    ref={imageRef}
+                    src={imagePreviewUrl}
+                    alt="Uploaded"
+                    onLoad={handleImageLoad}
+                    style={{ maxWidth: '100%', maxHeight: '65vh', display: 'block', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  />
+                  {!showOriginalImage && !isOcrProcessing && ocrBlocks.map((block, idx) => (
+                    <div
+                      key={idx}
+                      className="ocr-block"
+                      style={{
+                        position: 'absolute',
+                        left: block.x * imageScale.x,
+                        top: block.y * imageScale.y,
+                        width: block.width * imageScale.x,
+                        height: block.height * imageScale.y,
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        color: '#111',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                        padding: '2px',
+                        boxSizing: 'border-box',
+                        fontSize: Math.max(10, (block.height * imageScale.y) * 0.7) + 'px',
+                        fontWeight: 500,
+                        borderRadius: 4,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        textAlign: 'center'
+                      }}
+                      title={block.originalText}
+                    >
+                      {block.translatedText}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
