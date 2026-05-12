@@ -172,10 +172,25 @@ const IconText = () => (
   </svg>
 )
 
+const IconShare = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16 }}>
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+)
+
 export default function App() {
-  const [sourceLang, setSourceLang] = useState<LangCode>('vi')
-  const [targetLang, setTargetLang] = useState<LangCode>('bna')
-  const [inputText, setInputText] = useState<string>('')
+  const searchParams = new URLSearchParams(window.location.search);
+  const initialSourceLang = (searchParams.get('sl') as LangCode) || 'vi';
+  const initialTargetLang = (searchParams.get('tl') as LangCode) || 'bna';
+  const initialInputText = searchParams.get('text') || '';
+
+  const [sourceLang, setSourceLang] = useState<LangCode>(initialSourceLang)
+  const [targetLang, setTargetLang] = useState<LangCode>(initialTargetLang)
+  const [inputText, setInputText] = useState<string>(initialInputText)
   const [outputText, setOutputText] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
   const [examples, setExamples] = useState<ExampleItem[]>([])
@@ -247,6 +262,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('translate_favorites', JSON.stringify(favorites))
   }, [favorites])
+
+  // Auto translate on load if text is in URL
+  useEffect(() => {
+    if (initialInputText) {
+      void doTranslate(initialInputText, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* ── Image Handlers ────────────────────────────────────── */
   const handleImageUpload = async (file: File) => {
@@ -357,6 +380,26 @@ export default function App() {
   }
 
   const clearAll = () => { setError(''); setInputText(''); setOutputText(''); setExamples([]) }
+
+  const generateShareLink = async () => {
+    const text = inputText.trim()
+    if (!text) { setError('Chưa có nội dung để chia sẻ.'); return }
+    
+    const url = new URL(window.location.href);
+    url.searchParams.set('sl', sourceLang);
+    url.searchParams.set('tl', targetLang);
+    url.searchParams.set('text', text);
+    
+    try {
+      await navigator.clipboard.writeText(url.toString())
+      setError('')
+      setToast(true)
+      if (toastTimer.current) clearTimeout(toastTimer.current)
+      toastTimer.current = setTimeout(() => setToast(false), 2000)
+    } catch {
+      setError('Không thể copy link tự động trên trình duyệt này.')
+    }
+  }
 
   const copyOutput = async () => {
     const text = outputText.trim()
@@ -818,6 +861,14 @@ export default function App() {
                   onClick={() => handleSpeak(outputText, false)}
                 >
                   <IconSpeaker isSpeaking={isSpeakingOutput} />
+                </button>
+                <button
+                  className="btn-share-inline"
+                  type="button"
+                  title="Chia sẻ bản dịch này"
+                  onClick={() => void generateShareLink()}
+                >
+                  <IconShare />
                 </button>
               </div>
             </div>

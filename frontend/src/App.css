@@ -403,6 +403,33 @@ textarea:focus {
   display: block;
 }
 
+/* Share icon inside output */
+.btn-share-inline {
+  position: absolute;
+  bottom: 10px;
+  right: 115px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--indigo-mid);
+  opacity: 0.6;
+  transition: all var(--transition);
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.btn-share-inline:hover {
+  opacity: 1;
+  color: var(--indigo-dark);
+  transform: scale(1.15);
+}
+
+.btn-share-inline svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 /* Copy icon inside input */
 .btn-copy-inline-input {
   position: absolute;
