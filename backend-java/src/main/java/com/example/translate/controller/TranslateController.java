@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.http.MediaType;
 
 @RestController
 @RequestMapping("/api")
@@ -41,6 +42,15 @@ public class TranslateController {
     @PostMapping("/tts")
     public ResponseEntity<TtsResponse> getTts(@Valid @RequestBody TtsRequest req) {
         TtsResponse resp = translateService.getTts(req);
+        return ResponseEntity.ok(resp);
+    }
+
+    @PostMapping(value = "/ocr", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<com.example.translate.dto.OcrResponse> processOcr(
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @org.springframework.web.bind.annotation.RequestParam("sourceLang") String sourceLang,
+            @org.springframework.web.bind.annotation.RequestParam("targetLang") String targetLang) {
+        com.example.translate.dto.OcrResponse resp = translateService.processOcr(file, sourceLang, targetLang);
         return ResponseEntity.ok(resp);
     }
 }

@@ -2,4 +2,6 @@ fastapi==0.135.2
 uvicorn[standard]==0.42.0
 pydantic==2.12.5
 gTTS==2.5.1
-
+pytesseract==0.3.10
+Pillow==10.3.0
+python-multipart==0.0.9

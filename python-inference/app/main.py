@@ -51,3 +51,21 @@ def internal_tts(req: TtsRequest) -> TtsResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+from fastapi import File, UploadFile, Form
+from app.inference.ocr import process_image
+from app.models.schemas import OcrResponse
+
+@app.post("/internal/ocr", response_model=OcrResponse)
+async def internal_ocr(
+    file: UploadFile = File(...),
+    sourceLang: str = Form(...),
+    targetLang: str = Form(...)
+) -> OcrResponse:
+    try:
+        image_bytes = await file.read()
+        blocks = process_image(image_bytes, sourceLang, targetLang)
+        return OcrResponse(blocks=blocks)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+

@@ -35,3 +35,16 @@ class TtsRequest(BaseModel):
 
 class TtsResponse(BaseModel):
     audioBase64: str
+
+
+class OcrBlock(BaseModel):
+    originalText: str
+    translatedText: str
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+class OcrResponse(BaseModel):
+    blocks: list[OcrBlock]

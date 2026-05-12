@@ -30,6 +30,15 @@ type ApiError = {
   details?: string[]
 }
 
+type OcrBlock = {
+  originalText: string;
+  translatedText: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const LANG_META: Record<LangCode, { label: string; flag: string }> = {
   vi: { label: 'Vietnamese', flag: viFlag },
   bna: { label: 'Ba Na', flag: bnaFlag },
@@ -147,6 +156,22 @@ const IconTrash = () => (
   </svg>
 )
 
+const IconImage = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16, marginRight: 6 }}>
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <circle cx="8.5" cy="8.5" r="1.5" />
+    <polyline points="21 15 16 10 5 21" />
+  </svg>
+)
+
+const IconText = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16, marginRight: 6 }}>
+    <polyline points="4 7 4 4 20 4 20 7" />
+    <line x1="9" y1="20" x2="15" y2="20" />
+    <line x1="12" y1="4" x2="12" y2="20" />
+  </svg>
+)
+
 export default function App() {
   const [sourceLang, setSourceLang] = useState<LangCode>('vi')
   const [targetLang, setTargetLang] = useState<LangCode>('bna')
@@ -175,9 +200,33 @@ export default function App() {
   const [showHistory, setShowHistory] = useState<boolean>(false)
   const [showFavorites, setShowFavorites] = useState<boolean>(false)
   const [toast, setToast] = useState<boolean>(false)
+  
+  const [translateMode, setTranslateMode] = useState<'text' | 'image'>('text')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [ocrBlocks, setOcrBlocks] = useState<OcrBlock[]>([])
+  const [showOriginalImage, setShowOriginalImage] = useState<boolean>(false)
+  const [isOcrProcessing, setIsOcrProcessing] = useState<boolean>(false)
+  const [imageScale, setImageScale] = useState({x: 1, y: 1});
+
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentAudio = useRef<HTMLAudioElement | null>(null)
+  const imageRef = useRef<HTMLImageElement>(null)
+
+  const handleImageLoad = () => {
+    if (imageRef.current) {
+      const scaleX = imageRef.current.clientWidth / imageRef.current.naturalWidth;
+      const scaleY = imageRef.current.clientHeight / imageRef.current.naturalHeight;
+      setImageScale({x: scaleX, y: scaleY});
+    }
+  }
+
+  useEffect(() => {
+    const handleResize = () => handleImageLoad();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [imagePreviewUrl]);
 
   /* Show toast then hide after 2 s */
   const showToast = () => {
@@ -198,6 +247,62 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('translate_favorites', JSON.stringify(favorites))
   }, [favorites])
+
+  /* ── Image Handlers ────────────────────────────────────── */
+  const handleImageUpload = async (file: File) => {
+    setImageFile(file);
+    setImagePreviewUrl(URL.createObjectURL(file));
+    setOcrBlocks([]);
+    setIsOcrProcessing(true);
+    setError('');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('sourceLang', sourceLang);
+    formData.append('targetLang', targetLang);
+
+    try {
+      const resp = await fetch('/api/ocr', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        throw new Error('Lỗi khi phân tích hình ảnh.');
+      }
+      const data = await resp.json();
+      if (data.blocks) {
+        setOcrBlocks(data.blocks);
+        // Recalculate scale just in case
+        setTimeout(handleImageLoad, 100);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Lỗi không xác định.');
+    } finally {
+      setIsOcrProcessing(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith('image/')) {
+        handleImageUpload(file);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const clearImage = () => {
+    setImageFile(null);
+    setImagePreviewUrl(null);
+    setOcrBlocks([]);
+    setError('');
+  };
 
   /* ── Handlers ──────────────────────────────────────────── */
   const swapDirection = () => {
@@ -509,6 +614,16 @@ export default function App() {
       {/* ── Card ──────────────────────────────────────────── */}
       <section className="card">
 
+        {/* ── Mode Tabs ─────────────────────────────────── */}
+        <div className="mode-tabs">
+          <button className={`mode-tab ${translateMode === 'text' ? 'active' : ''}`} onClick={() => setTranslateMode('text')}>
+            <IconText /> Văn bản
+          </button>
+          <button className={`mode-tab ${translateMode === 'image' ? 'active' : ''}`} onClick={() => setTranslateMode('image')}>
+            <IconImage /> Hình ảnh
+          </button>
+        </div>
+
         {/* ── Toolbar ───────────────────────────────────── */}
         <div className="toolbar">
           {/* Source */}
@@ -562,8 +677,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── Text panes ────────────────────────────────── */}
-        <div className="panes">
+        {/* ── Text panes or Image pane ──────────────────── */}
+        {translateMode === 'text' ? (
+          <div className="panes">
           {/* Input */}
           <div className="pane">
             <div className="pane-title">
@@ -662,6 +778,84 @@ export default function App() {
             </div>
           </div>
         </div>
+        ) : (
+          <div className="image-pane">
+            {imagePreviewUrl && (
+              <div className="image-pane-header" style={{ display: 'flex', alignItems: 'center', padding: '10px 15px', background: '#f8f9fa', borderBottom: '1px solid #e1e4e8', borderRadius: '12px 12px 0 0' }}>
+                <button className="btn-secondary" onClick={clearImage} style={{ marginRight: 'auto' }}>
+                  ✕ Xóa ảnh
+                </button>
+                <span className="toggle-label" style={{ marginRight: 10, fontSize: 14, fontWeight: 500 }}>Hiện bản gốc</span>
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={showOriginalImage} onChange={(e) => setShowOriginalImage(e.target.checked)} />
+                  <span className="slider round"></span>
+                </label>
+              </div>
+            )}
+            
+            {!imagePreviewUrl ? (
+              <div 
+                className="image-upload-zone"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+              >
+                <div className="upload-icon"><IconImage /></div>
+                <h3>Kéo và thả hình ảnh vào đây</h3>
+                <p>hoặc</p>
+                <label className="btn-primary" style={{ cursor: 'pointer', padding: '10px 20px', borderRadius: 8, marginTop: 10, display: 'inline-block' }}>
+                  Duyệt qua các tệp
+                  <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} />
+                </label>
+              </div>
+            ) : (
+              <div className="image-viewer" style={{ padding: 20, textAlign: 'center', background: '#f8f9fa', borderRadius: '0 0 12px 12px' }}>
+                {isOcrProcessing && (
+                  <div className="ocr-loading" style={{ padding: 20, color: '#1a73e8', fontWeight: 500 }}>
+                    <span className="spinner" /> Đang phân tích và dịch hình ảnh...
+                  </div>
+                )}
+                <div className="image-container" style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                   <img 
+                      ref={imageRef}
+                      src={imagePreviewUrl} 
+                      alt="Uploaded" 
+                      onLoad={handleImageLoad}
+                      style={{ maxWidth: '100%', maxHeight: '65vh', display: 'block', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                   />
+                   {!showOriginalImage && !isOcrProcessing && ocrBlocks.map((block, idx) => (
+                     <div 
+                        key={idx}
+                        className="ocr-block"
+                        style={{
+                           position: 'absolute',
+                           left: block.x * imageScale.x,
+                           top: block.y * imageScale.y,
+                           width: block.width * imageScale.x,
+                           height: block.height * imageScale.y,
+                           backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                           color: '#111',
+                           display: 'flex',
+                           alignItems: 'center',
+                           justifyContent: 'center',
+                           overflow: 'hidden',
+                           padding: '2px',
+                           boxSizing: 'border-box',
+                           fontSize: Math.max(10, (block.height * imageScale.y) * 0.7) + 'px',
+                           fontWeight: 500,
+                           borderRadius: 4,
+                           boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                           textAlign: 'center'
+                        }}
+                        title={block.originalText}
+                     >
+                       {block.translatedText}
+                     </div>
+                   ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── Error ─────────────────────────────────────── */}
         {error && (

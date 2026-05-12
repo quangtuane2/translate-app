@@ -92,5 +92,40 @@ public class TranslateService {
             throw new UpstreamServiceException("Python service unavailable", 502);
         }
     }
+
+    public com.example.translate.dto.OcrResponse processOcr(org.springframework.web.multipart.MultipartFile file, String sourceLang, String targetLang) {
+        String url = pythonBaseUrl + "/internal/ocr";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        org.springframework.util.MultiValueMap<String, Object> body = new org.springframework.util.LinkedMultiValueMap<>();
+        try {
+            org.springframework.core.io.ByteArrayResource fileAsResource = new org.springframework.core.io.ByteArrayResource(file.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return file.getOriginalFilename();
+                }
+            };
+            body.add("file", fileAsResource);
+            body.add("sourceLang", sourceLang);
+            body.add("targetLang", targetLang);
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Error reading file", e);
+        }
+
+        HttpEntity<org.springframework.util.MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<com.example.translate.dto.OcrResponse> response = restTemplate.postForEntity(url, requestEntity, com.example.translate.dto.OcrResponse.class);
+            return response.getBody();
+        } catch (HttpStatusCodeException ex) {
+            String respBody = ex.getResponseBodyAsString();
+            int status = ex.getStatusCode().value();
+            throw new UpstreamServiceException(respBody != null ? respBody : "Python service error", status);
+        } catch (RestClientException ex) {
+            throw new UpstreamServiceException("Python service unavailable", 502);
+        }
+    }
 }
 
