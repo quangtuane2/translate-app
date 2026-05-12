@@ -48,3 +48,8 @@ class OcrBlock(BaseModel):
 
 class OcrResponse(BaseModel):
     blocks: list[OcrBlock]
+
+
+class DocumentResponse(BaseModel):
+    originalText: str
+    translatedText: str

@@ -54,7 +54,8 @@ def internal_tts(req: TtsRequest) -> TtsResponse:
 
 from fastapi import File, UploadFile, Form
 from app.inference.ocr import process_image
-from app.models.schemas import OcrResponse
+from app.models.schemas import OcrResponse, DocumentResponse
+from app.inference.document import process_document
 
 @app.post("/internal/ocr", response_model=OcrResponse)
 async def internal_ocr(
@@ -68,4 +69,21 @@ async def internal_ocr(
         return OcrResponse(blocks=blocks)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR processing failed: {str(e)}")
+
+@app.post("/internal/document", response_model=DocumentResponse)
+async def internal_document(
+    file: UploadFile = File(...),
+    sourceLang: str = Form(...),
+    targetLang: str = Form(...)
+) -> DocumentResponse:
+    try:
+        file_bytes = await file.read()
+        filename = file.filename or ""
+        result = process_document(file_bytes, filename, sourceLang, targetLang)
+        return DocumentResponse(
+            originalText=result["originalText"],
+            translatedText=result["translatedText"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Document processing failed: {str(e)}")
 

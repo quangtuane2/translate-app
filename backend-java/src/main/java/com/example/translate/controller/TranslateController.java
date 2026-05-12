@@ -53,5 +53,14 @@ public class TranslateController {
         com.example.translate.dto.OcrResponse resp = translateService.processOcr(file, sourceLang, targetLang);
         return ResponseEntity.ok(resp);
     }
-}
 
+    @PostMapping(value = "/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<com.example.translate.dto.DocumentResponse> processDocument(
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @org.springframework.web.bind.annotation.RequestParam("sourceLang") String sourceLang,
+            @org.springframework.web.bind.annotation.RequestParam("targetLang") String targetLang) {
+        com.example.translate.dto.DocumentResponse resp = translateService.processDocument(file, sourceLang,
+                targetLang);
+        return ResponseEntity.ok(resp);
+    }
+}

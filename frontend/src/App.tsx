@@ -182,6 +182,16 @@ const IconShare = () => (
   </svg>
 )
 
+const IconDocument = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 16, height: 16, marginRight: 6 }}>
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
+  </svg>
+)
+
 export default function App() {
   const searchParams = new URLSearchParams(window.location.search);
   const initialSourceLang = (searchParams.get('sl') as LangCode) || 'vi';
@@ -216,13 +226,17 @@ export default function App() {
   const [showFavorites, setShowFavorites] = useState<boolean>(false)
   const [toast, setToast] = useState<boolean>(false)
 
-  const [translateMode, setTranslateMode] = useState<'text' | 'image'>('text')
+  const [translateMode, setTranslateMode] = useState<'text' | 'image' | 'document'>('text')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [ocrBlocks, setOcrBlocks] = useState<OcrBlock[]>([])
   const [showOriginalImage, setShowOriginalImage] = useState<boolean>(false)
   const [isOcrProcessing, setIsOcrProcessing] = useState<boolean>(false)
   const [imageScale, setImageScale] = useState({ x: 1, y: 1 });
+
+  const [docFile, setDocFile] = useState<File | null>(null)
+  const [docResult, setDocResult] = useState<{ originalText: string, translatedText: string } | null>(null)
+  const [isDocProcessing, setIsDocProcessing] = useState<boolean>(false)
 
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -299,8 +313,12 @@ export default function App() {
         // Recalculate scale just in case
         setTimeout(handleImageLoad, 100);
       }
-    } catch (err: any) {
-      setError(err.message || 'Lỗi không xác định.');
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Lỗi không xác định.');
+      } else {
+        setError('Lỗi không xác định.');
+      }
     } finally {
       setIsOcrProcessing(false);
     }
@@ -310,8 +328,15 @@ export default function App() {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      if (file.type.startsWith('image/')) {
+      if (translateMode === 'image' && file.type.startsWith('image/')) {
         handleImageUpload(file);
+      } else if (translateMode === 'document') {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (ext === 'txt' || ext === 'docx' || ext === 'pdf') {
+          handleDocUpload(file);
+        } else {
+          setError('Định dạng file không hỗ trợ. Hỗ trợ .txt, .docx, .pdf');
+        }
       }
     }
   };
@@ -371,6 +396,65 @@ export default function App() {
     a.click();
   };
 
+  /* ── Document Handlers ─────────────────────────────────── */
+  const handleDocUpload = async (file: File) => {
+    setDocFile(file);
+    setDocResult(null);
+    setIsDocProcessing(true);
+    setError('');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('sourceLang', sourceLang);
+    formData.append('targetLang', targetLang);
+
+    try {
+      const resp = await fetch('/api/document', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        throw new Error('Lỗi khi xử lý tài liệu.');
+      }
+      const data = await resp.json();
+      setDocResult(data);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || 'Lỗi không xác định.');
+      } else {
+        setError('Lỗi không xác định.');
+      }
+    } finally {
+      setIsDocProcessing(false);
+    }
+  };
+
+  const clearDoc = () => {
+    setDocFile(null);
+    setDocResult(null);
+    setError('');
+  };
+
+  const downloadTranslatedDocument = () => {
+    if (!docResult || !docFile) return;
+
+    const element = document.createElement("a");
+    const file = new Blob([docResult.translatedText], { type: 'text/plain;charset=utf-8' });
+    element.href = URL.createObjectURL(file);
+    element.download = `translated_${docFile.name}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  const openTranslatedDocument = () => {
+    if (!docResult) return;
+    setInputText(docResult.originalText);
+    setOutputText(docResult.translatedText);
+    setTranslateMode('text');
+  };
+
   /* ── Handlers ──────────────────────────────────────────── */
   const swapDirection = () => {
     setError('')
@@ -384,12 +468,12 @@ export default function App() {
   const generateShareLink = async () => {
     const text = inputText.trim()
     if (!text) { setError('Chưa có nội dung để chia sẻ.'); return }
-    
+
     const url = new URL(window.location.href);
     url.searchParams.set('sl', sourceLang);
     url.searchParams.set('tl', targetLang);
     url.searchParams.set('text', text);
-    
+
     try {
       await navigator.clipboard.writeText(url.toString())
       setError('')
@@ -542,7 +626,9 @@ export default function App() {
   }
 
   const toggleListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const win = window as unknown as { SpeechRecognition: unknown, webkitSpeechRecognition: unknown };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition = (win.SpeechRecognition || win.webkitSpeechRecognition) as any
     if (!SpeechRecognition) {
       setError('Trình duyệt của bạn không hỗ trợ nhận diện giọng nói.')
       return
@@ -565,6 +651,7 @@ export default function App() {
       setError('Có lỗi khi thu âm. Vui lòng kiểm tra micro.')
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript
       setInputText(transcript)
@@ -709,6 +796,9 @@ export default function App() {
           <button className={`mode-tab ${translateMode === 'image' ? 'active' : ''}`} onClick={() => setTranslateMode('image')}>
             <IconImage /> Hình ảnh
           </button>
+          <button className={`mode-tab ${translateMode === 'document' ? 'active' : ''}`} onClick={() => setTranslateMode('document')}>
+            <IconDocument /> Tài liệu
+          </button>
         </div>
 
         {/* ── Toolbar ───────────────────────────────────── */}
@@ -764,8 +854,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── Text panes or Image pane ──────────────────── */}
-        {translateMode === 'text' ? (
+        {/* ── Text panes, Image pane, or Document pane ──────────────────── */}
+        {translateMode === 'text' && (
           <div className="panes">
             {/* Input */}
             <div className="pane">
@@ -873,7 +963,9 @@ export default function App() {
               </div>
             </div>
           </div>
-        ) : (
+        )}
+
+        {translateMode === 'image' && (
           <div className="image-pane">
             {imagePreviewUrl && (
               <div className="image-pane-header" style={{ display: 'flex', alignItems: 'center', padding: '10px 15px', background: '#f8f9fa', borderBottom: '1px solid #e1e4e8', borderRadius: '12px 12px 0 0' }}>
@@ -950,6 +1042,64 @@ export default function App() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {translateMode === 'document' && (
+          <div className="document-pane" style={{ padding: '40px 20px', minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            {isDocProcessing ? (
+              <div className="doc-loading" style={{ padding: 20, color: '#1a73e8', fontWeight: 500 }}>
+                <span className="spinner" /> Đang dịch tài liệu...
+              </div>
+            ) : docFile ? (
+              <div className="doc-result-container" style={{ width: '100%', maxWidth: 600 }}>
+                <div className="doc-file-info" style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', background: '#f1f3f4', borderRadius: 8, marginBottom: 20 }}>
+                  <IconDocument />
+                  <div style={{ flex: 1, marginLeft: 15 }}>
+                    <div style={{ fontWeight: 500, color: '#202124' }}>{docFile.name}</div>
+                    <div style={{ fontSize: 13, color: '#5f6368', marginTop: 4 }}>{(docFile.size / 1024).toFixed(0)} KB</div>
+                  </div>
+                  <button className="btn-clear-doc" onClick={clearDoc} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#5f6368', fontSize: 18 }}>✕</button>
+                </div>
+
+                {docResult && (
+                  <div className="doc-actions" style={{ display: 'flex', justifyContent: 'center', gap: 15 }}>
+                    <button className="btn-secondary" onClick={downloadTranslatedDocument} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}>
+                      <IconCopy /> Tải bản dịch xuống
+                    </button>
+                    <button className="btn-primary" onClick={openTranslatedDocument} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}>
+                      <IconShare /> Mở bản dịch
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                className="doc-upload-zone"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                style={{ border: '2px dashed #dadce0', borderRadius: 12, padding: '40px 20px', textAlign: 'center', width: '100%', maxWidth: 600, background: '#f8f9fa' }}
+              >
+                <div className="upload-icon" style={{ fontSize: 40, color: '#1a73e8', marginBottom: 15 }}><IconDocument /></div>
+                <h3 style={{ color: '#202124', marginBottom: 8 }}>Kéo và thả tài liệu vào đây</h3>
+                <p style={{ color: '#5f6368', fontSize: 14 }}>Hỗ trợ các định dạng .docx, .pdf, .txt</p>
+                <p style={{ margin: '15px 0' }}>hoặc</p>
+                <label className="btn-primary" style={{ cursor: 'pointer', padding: '10px 20px', borderRadius: 8, display: 'inline-block' }}>
+                  Duyệt qua các tệp
+                  <input type="file" accept=".txt,.docx,.pdf" style={{ display: 'none' }} onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      const file = e.target.files[0];
+                      const ext = file.name.split('.').pop()?.toLowerCase();
+                      if (ext === 'txt' || ext === 'docx' || ext === 'pdf') {
+                        handleDocUpload(file);
+                      } else {
+                        setError('Định dạng file không hỗ trợ. Hỗ trợ .txt, .docx, .pdf');
+                      }
+                    }
+                  }} />
+                </label>
               </div>
             )}
           </div>
@@ -1143,8 +1293,8 @@ export default function App() {
               key={idx}
               className="dict-card"
               onClick={() => {
-                setSourceLang(pair.from as any);
-                setTargetLang(pair.to as any);
+                setSourceLang(pair.from as LangCode);
+                setTargetLang(pair.to as LangCode);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
             >
