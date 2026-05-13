@@ -47,6 +47,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           id: data.id,
           username: data.username,
           email: data.email,
+          role: data.role,
           accessToken: data.accessToken,
         });
         

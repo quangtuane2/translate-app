@@ -11,6 +11,7 @@ import VirtualKeyboard from './VirtualKeyboard'
 import { useAuth } from './context/AuthContext';
 import AuthModal from './components/AuthModal';
 import FeedbackModal from './components/FeedbackModal';
+import AdminDashboard from './components/AdminDashboard';
 
 type LangCode = 'vi' | 'bna' | 'ede' | 'km'
 
@@ -251,6 +252,7 @@ export default function App() {
   const [feedbackConfig, setFeedbackConfig] = useState<{ isOpen: boolean, type: 'EDIT' | 'VOTE', historyId: string | number }>({ isOpen: false, type: 'EDIT', historyId: 0 })
   const [votedHistoryIds, setVotedHistoryIds] = useState<Set<string | number>>(new Set());
   const [currentHistoryId, setCurrentHistoryId] = useState<number | string>(0);
+  const [view, setView] = useState<'TRANSLATE' | 'ADMIN'>('TRANSLATE');
 
   const handleImageLoad = () => {
     if (imageRef.current) {
@@ -903,6 +905,16 @@ export default function App() {
           {user ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 500 }}>Chào, <strong>{user.username}</strong></span>
+
+              {user.role === 'ROLE_ADMIN' && (
+                <button
+                  className="btn-secondary"
+                  onClick={() => setView(view === 'ADMIN' ? 'TRANSLATE' : 'ADMIN')}
+                  style={{ padding: '8px 16px', fontSize: '13px', background: '#ffebee', borderColor: '#f44336', color: '#c62828' }}>
+                  {view === 'ADMIN' ? '🔙 Trở về' : '👑 Admin'}
+                </button>
+              )}
+
               <button className="btn-secondary" onClick={logout} style={{ padding: '8px 16px', fontSize: '13px' }}>Đăng xuất</button>
             </div>
           ) : (
@@ -911,569 +923,576 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Card ──────────────────────────────────────────── */}
-      <section className="card">
+      {/* ── Main Content Area ─────────────────────────────── */}
+      {view === 'ADMIN' ? (
+        <AdminDashboard />
+      ) : (
+        <>
+          {/* ── Card ──────────────────────────────────────────── */}
+          <section className="card">
 
-        {/* ── Mode Tabs ─────────────────────────────────── */}
-        <div className="mode-tabs">
-          <button className={`mode-tab ${translateMode === 'text' ? 'active' : ''}`} onClick={() => setTranslateMode('text')}>
-            <IconText /> Văn bản
-          </button>
-          <button className={`mode-tab ${translateMode === 'image' ? 'active' : ''}`} onClick={() => setTranslateMode('image')}>
-            <IconImage /> Hình ảnh
-          </button>
-          <button className={`mode-tab ${translateMode === 'document' ? 'active' : ''}`} onClick={() => setTranslateMode('document')}>
-            <IconDocument /> Tài liệu
-          </button>
-        </div>
-
-        {/* ── Toolbar ───────────────────────────────────── */}
-        <div className="toolbar">
-          {/* Source */}
-          <div className="lang">
-            <label htmlFor="sourceLang">Từ</label>
-            <div className="lang-select-wrap">
-              <span className="lang-flag">
-                <img src={srcMeta.flag} alt={srcMeta.label} className="flag-icon" />
-              </span>
-              <select
-                id="sourceLang"
-                value={sourceLang}
-                onChange={(e) => handleSourceChange(e.target.value as LangCode)}
-              >
-                <option value="vi">Vietnamese</option>
-                <option value="bna">Ba Na </option>
-                <option value="ede">Ê-đê</option>
-                <option value="km">Khmer</option>
-              </select>
-              <span className="lang-arrow">▾</span>
+            {/* ── Mode Tabs ─────────────────────────────────── */}
+            <div className="mode-tabs">
+              <button className={`mode-tab ${translateMode === 'text' ? 'active' : ''}`} onClick={() => setTranslateMode('text')}>
+                <IconText /> Văn bản
+              </button>
+              <button className={`mode-tab ${translateMode === 'image' ? 'active' : ''}`} onClick={() => setTranslateMode('image')}>
+                <IconImage /> Hình ảnh
+              </button>
+              <button className={`mode-tab ${translateMode === 'document' ? 'active' : ''}`} onClick={() => setTranslateMode('document')}>
+                <IconDocument /> Tài liệu
+              </button>
             </div>
-          </div>
 
-          {/* Swap */}
-          <div className="swap-wrap">
-            <button id="swapBtn" className="btn-swap" type="button"
-              title="Hoán đổi chiều dịch" onClick={swapDirection}>
-              <IconSwap /> Swap
-            </button>
-          </div>
-
-          {/* Target */}
-          <div className="lang">
-            <label htmlFor="targetLang">Đến</label>
-            <div className="lang-select-wrap">
-              <span className="lang-flag">
-                <img src={tgtMeta.flag} alt={tgtMeta.label} className="flag-icon" />
-              </span>
-              <select
-                id="targetLang"
-                value={targetLang}
-                onChange={(e) => handleTargetChange(e.target.value as LangCode)}
-              >
-                <option value="vi">Vietnamese</option>
-                <option value="bna">Ba Na</option>
-                <option value="ede">Ê-đê</option>
-                <option value="km">Khmer</option>
-              </select>
-              <span className="lang-arrow">▾</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Text panes, Image pane, or Document pane ──────────────────── */}
-        {translateMode === 'text' && (
-          <div className="panes">
-            {/* Input */}
-            <div className="pane">
-              <div className="pane-title">
-                <img src={srcMeta.flag} alt="" className="pane-flag" />
-                {paneTitle(sourceLang)}
-              </div>
-              <div className="textarea-wrap">
-                <textarea
-                  id="inputText"
-                  placeholder="Nhập văn bản..."
-                  value={inputText}
-                  maxLength={MAX_CHARS}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void doTranslate(undefined, true)
-                  }}
-                />
-                <button
-                  id="clearInlineBtn"
-                  className={`btn-clear-inline${inputText ? ' visible' : ''}`}
-                  type="button"
-                  title="Xóa văn bản"
-                  onClick={clearAll}
-                >✕</button>
-                <button
-                  id="copyInputInlineBtn"
-                  className="btn-copy-inline-input"
-                  type="button"
-                  title="Copy văn bản gốc"
-                  onClick={() => void copyInput()}
-                >
-                  <IconCopy />
-                </button>
-                {sourceLang === 'vi' && (
-                  <button
-                    id="micBtn"
-                    className={`btn-mic-inline${isListening ? ' listening' : ''}`}
-                    type="button"
-                    title="Thu âm tiếng Việt"
-                    onClick={toggleListening}
+            {/* ── Toolbar ───────────────────────────────────── */}
+            <div className="toolbar">
+              {/* Source */}
+              <div className="lang">
+                <label htmlFor="sourceLang">Từ</label>
+                <div className="lang-select-wrap">
+                  <span className="lang-flag">
+                    <img src={srcMeta.flag} alt={srcMeta.label} className="flag-icon" />
+                  </span>
+                  <select
+                    id="sourceLang"
+                    value={sourceLang}
+                    onChange={(e) => handleSourceChange(e.target.value as LangCode)}
                   >
-                    <IconMic />
-                  </button>
-                )}
-                <button
-                  className={`btn-speaker-inline-input ${isSpeakingInput ? 'speaking' : ''}`}
-                  type="button"
-                  title="Đọc phát âm"
-                  onClick={() => handleSpeak(inputText, true)}
-                >
-                  <IconSpeaker isSpeaking={isSpeakingInput} />
-                </button>
-                <span className="char-count">{charCount}/{MAX_CHARS}</span>
+                    <option value="vi">Vietnamese</option>
+                    <option value="bna">Ba Na </option>
+                    <option value="ede">Ê-đê</option>
+                    <option value="km">Khmer</option>
+                  </select>
+                  <span className="lang-arrow">▾</span>
+                </div>
               </div>
-            </div>
 
-            {/* Output */}
-            <div className="pane">
-              <div className="pane-title">
-                <img src={tgtMeta.flag} alt="" className="pane-flag" />
-                {paneTitle(targetLang)}
-              </div>
-              <div className="textarea-wrap output-area">
-                <textarea
-                  id="outputText"
-                  placeholder="Kết quả sẽ hiển thị ở đây..."
-                  value={outputText}
-                  readOnly
-                />
-                <button
-                  id="copyInlineBtn"
-                  className="btn-copy-inline"
-                  type="button"
-                  title="Copy kết quả"
-                  onClick={() => void copyOutput()}
-                >
-                  <IconCopy />
-                </button>
-                <button
-                  id="favInlineBtn"
-                  className={`btn-fav-inline ${isFavorited(inputText, outputText, targetLang) ? 'active' : ''}`}
-                  type="button"
-                  title="Lưu vào yêu thích"
-                  onClick={saveCurrentToFavorites}
-                >
-                  <IconStar filled={isFavorited(inputText, outputText, targetLang)} />
-                </button>
-                <button
-                  className={`btn-speaker-inline-output ${isSpeakingOutput ? 'speaking' : ''}`}
-                  type="button"
-                  title="Đọc phát âm"
-                  onClick={() => handleSpeak(outputText, false)}
-                >
-                  <IconSpeaker isSpeaking={isSpeakingOutput} />
-                </button>
-                <button
-                  className="btn-share-inline"
-                  type="button"
-                  title="Chia sẻ bản dịch này"
-                  onClick={() => void generateShareLink()}
-                >
-                  <IconShare />
+              {/* Swap */}
+              <div className="swap-wrap">
+                <button id="swapBtn" className="btn-swap" type="button"
+                  title="Hoán đổi chiều dịch" onClick={swapDirection}>
+                  <IconSwap /> Swap
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '10px', paddingRight: '5px' }}>
-                <button
-                  className="btn-secondary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px' }}
-                  title="Đề xuất bản dịch tốt hơn" 
-                  onClick={() => {
-                    if (!user) return setShowAuthModal(true);
-                    if (!currentHistoryId) { setError('Bạn chưa dịch nội dung nào'); return; }
-                    setFeedbackConfig({ isOpen: true, type: 'EDIT', historyId: currentHistoryId });
-                  }}>
-                  ✏️ Edit
-                </button>
-                
-                {votedHistoryIds.has(currentHistoryId) ? (
-                  <button 
-                    className="btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px', opacity: 0.6, cursor: 'not-allowed' }}
-                    title="Bạn đã đánh giá bản dịch này" 
-                    disabled 
+              {/* Target */}
+              <div className="lang">
+                <label htmlFor="targetLang">Đến</label>
+                <div className="lang-select-wrap">
+                  <span className="lang-flag">
+                    <img src={tgtMeta.flag} alt={tgtMeta.label} className="flag-icon" />
+                  </span>
+                  <select
+                    id="targetLang"
+                    value={targetLang}
+                    onChange={(e) => handleTargetChange(e.target.value as LangCode)}
                   >
-                    ✅ Voted
-                  </button>
-                ) : (
-                  <button 
-                    className="btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px' }}
-                    title="Đánh giá bản dịch" 
-                    onClick={() => {
-                      if (!user) return setShowAuthModal(true);
-                      if (!currentHistoryId) { setError('Bạn chưa dịch nội dung nào'); return; }
-                      setFeedbackConfig({ isOpen: true, type: 'VOTE', historyId: currentHistoryId });
-                    }}>
-                    ⭐ Voting
-                  </button>
-                )}
+                    <option value="vi">Vietnamese</option>
+                    <option value="bna">Ba Na</option>
+                    <option value="ede">Ê-đê</option>
+                    <option value="km">Khmer</option>
+                  </select>
+                  <span className="lang-arrow">▾</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {translateMode === 'image' && (
-          <div className="image-pane">
-            {imagePreviewUrl && (
-              <div className="image-pane-header" style={{ display: 'flex', alignItems: 'center', padding: '10px 15px', background: '#f8f9fa', borderBottom: '1px solid #e1e4e8', borderRadius: '12px 12px 0 0' }}>
-                <button className="btn-secondary" onClick={clearImage} style={{ marginRight: 10 }}>
-                  ✕ Xóa ảnh
-                </button>
-                <button className="btn-secondary" onClick={downloadTranslatedImage} style={{ marginRight: 'auto' }} title="Tải xuống hình ảnh đã dịch">
-                  <IconCopy /> Tải bản dịch
-                </button>
-                <span className="toggle-label" style={{ marginRight: 10, fontSize: 14, fontWeight: 500 }}>Hiện bản gốc</span>
-                <label className="toggle-switch">
-                  <input type="checkbox" checked={showOriginalImage} onChange={(e) => setShowOriginalImage(e.target.checked)} />
-                  <span className="slider round"></span>
-                </label>
-              </div>
-            )}
-
-            {!imagePreviewUrl ? (
-              <div
-                className="image-upload-zone"
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-              >
-                <div className="upload-icon"><IconImage /></div>
-                <h3>Kéo và thả hình ảnh vào đây</h3>
-                <p>hoặc</p>
-                <label className="btn-primary" style={{ cursor: 'pointer', padding: '10px 20px', borderRadius: 8, marginTop: 10, display: 'inline-block' }}>
-                  Duyệt qua các tệp
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} />
-                </label>
-              </div>
-            ) : (
-              <div className="image-viewer" style={{ padding: 20, textAlign: 'center', background: '#f8f9fa', borderRadius: '0 0 12px 12px' }}>
-                {isOcrProcessing && (
-                  <div className="ocr-loading" style={{ padding: 20, color: '#1a73e8', fontWeight: 500 }}>
-                    <span className="spinner" /> Đang phân tích và dịch hình ảnh...
+            {/* ── Text panes, Image pane, or Document pane ──────────────────── */}
+            {translateMode === 'text' && (
+              <div className="panes">
+                {/* Input */}
+                <div className="pane">
+                  <div className="pane-title">
+                    <img src={srcMeta.flag} alt="" className="pane-flag" />
+                    {paneTitle(sourceLang)}
                   </div>
-                )}
-                <div className="image-container" style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
-                  <img
-                    ref={imageRef}
-                    src={imagePreviewUrl}
-                    alt="Uploaded"
-                    onLoad={handleImageLoad}
-                    style={{ maxWidth: '100%', maxHeight: '65vh', display: 'block', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  />
-                  {!showOriginalImage && !isOcrProcessing && ocrBlocks.map((block, idx) => (
-                    <div
-                      key={idx}
-                      className="ocr-block"
-                      style={{
-                        position: 'absolute',
-                        left: block.x * imageScale.x,
-                        top: block.y * imageScale.y,
-                        width: block.width * imageScale.x,
-                        height: block.height * imageScale.y,
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        color: '#111',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                        padding: '2px',
-                        boxSizing: 'border-box',
-                        fontSize: Math.max(10, (block.height * imageScale.y) * 0.7) + 'px',
-                        fontWeight: 500,
-                        borderRadius: 4,
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                        textAlign: 'center'
+                  <div className="textarea-wrap">
+                    <textarea
+                      id="inputText"
+                      placeholder="Nhập văn bản..."
+                      value={inputText}
+                      maxLength={MAX_CHARS}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void doTranslate(undefined, true)
                       }}
-                      title={block.originalText}
+                    />
+                    <button
+                      id="clearInlineBtn"
+                      className={`btn-clear-inline${inputText ? ' visible' : ''}`}
+                      type="button"
+                      title="Xóa văn bản"
+                      onClick={clearAll}
+                    >✕</button>
+                    <button
+                      id="copyInputInlineBtn"
+                      className="btn-copy-inline-input"
+                      type="button"
+                      title="Copy văn bản gốc"
+                      onClick={() => void copyInput()}
                     >
-                      {block.translatedText}
-                    </div>
-                  ))}
+                      <IconCopy />
+                    </button>
+                    {sourceLang === 'vi' && (
+                      <button
+                        id="micBtn"
+                        className={`btn-mic-inline${isListening ? ' listening' : ''}`}
+                        type="button"
+                        title="Thu âm tiếng Việt"
+                        onClick={toggleListening}
+                      >
+                        <IconMic />
+                      </button>
+                    )}
+                    <button
+                      className={`btn-speaker-inline-input ${isSpeakingInput ? 'speaking' : ''}`}
+                      type="button"
+                      title="Đọc phát âm"
+                      onClick={() => handleSpeak(inputText, true)}
+                    >
+                      <IconSpeaker isSpeaking={isSpeakingInput} />
+                    </button>
+                    <span className="char-count">{charCount}/{MAX_CHARS}</span>
+                  </div>
+                </div>
+
+                {/* Output */}
+                <div className="pane">
+                  <div className="pane-title">
+                    <img src={tgtMeta.flag} alt="" className="pane-flag" />
+                    {paneTitle(targetLang)}
+                  </div>
+                  <div className="textarea-wrap output-area">
+                    <textarea
+                      id="outputText"
+                      placeholder="Kết quả sẽ hiển thị ở đây..."
+                      value={outputText}
+                      readOnly
+                    />
+                    <button
+                      id="copyInlineBtn"
+                      className="btn-copy-inline"
+                      type="button"
+                      title="Copy kết quả"
+                      onClick={() => void copyOutput()}
+                    >
+                      <IconCopy />
+                    </button>
+                    <button
+                      id="favInlineBtn"
+                      className={`btn-fav-inline ${isFavorited(inputText, outputText, targetLang) ? 'active' : ''}`}
+                      type="button"
+                      title="Lưu vào yêu thích"
+                      onClick={saveCurrentToFavorites}
+                    >
+                      <IconStar filled={isFavorited(inputText, outputText, targetLang)} />
+                    </button>
+                    <button
+                      className={`btn-speaker-inline-output ${isSpeakingOutput ? 'speaking' : ''}`}
+                      type="button"
+                      title="Đọc phát âm"
+                      onClick={() => handleSpeak(outputText, false)}
+                    >
+                      <IconSpeaker isSpeaking={isSpeakingOutput} />
+                    </button>
+                    <button
+                      className="btn-share-inline"
+                      type="button"
+                      title="Chia sẻ bản dịch này"
+                      onClick={() => void generateShareLink()}
+                    >
+                      <IconShare />
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '10px', paddingRight: '5px' }}>
+                    <button
+                      className="btn-secondary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px' }}
+                      title="Đề xuất bản dịch tốt hơn"
+                      onClick={() => {
+                        if (!user) return setShowAuthModal(true);
+                        if (!currentHistoryId) { setError('Bạn chưa dịch nội dung nào'); return; }
+                        setFeedbackConfig({ isOpen: true, type: 'EDIT', historyId: currentHistoryId });
+                      }}>
+                      ✏️ Edit
+                    </button>
+
+                    {votedHistoryIds.has(currentHistoryId) ? (
+                      <button
+                        className="btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px', opacity: 0.6, cursor: 'not-allowed' }}
+                        title="Bạn đã đánh giá bản dịch này"
+                        disabled
+                      >
+                        ✅ Voted
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px' }}
+                        title="Đánh giá bản dịch"
+                        onClick={() => {
+                          if (!user) return setShowAuthModal(true);
+                          if (!currentHistoryId) { setError('Bạn chưa dịch nội dung nào'); return; }
+                          setFeedbackConfig({ isOpen: true, type: 'VOTE', historyId: currentHistoryId });
+                        }}>
+                        ⭐ Voting
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {translateMode === 'document' && (
-          <div className="document-pane" style={{ padding: '40px 20px', minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            {isDocProcessing ? (
-              <div className="doc-loading" style={{ padding: 20, color: '#1a73e8', fontWeight: 500 }}>
-                <span className="spinner" /> Đang dịch tài liệu...
-              </div>
-            ) : docFile ? (
-              <div className="doc-result-container" style={{ width: '100%', maxWidth: 600 }}>
-                <div className="doc-file-info" style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', background: '#f1f3f4', borderRadius: 8, marginBottom: 20 }}>
-                  <IconDocument />
-                  <div style={{ flex: 1, marginLeft: 15 }}>
-                    <div style={{ fontWeight: 500, color: '#202124' }}>{docFile.name}</div>
-                    <div style={{ fontSize: 13, color: '#5f6368', marginTop: 4 }}>{(docFile.size / 1024).toFixed(0)} KB</div>
+            {translateMode === 'image' && (
+              <div className="image-pane">
+                {imagePreviewUrl && (
+                  <div className="image-pane-header" style={{ display: 'flex', alignItems: 'center', padding: '10px 15px', background: '#f8f9fa', borderBottom: '1px solid #e1e4e8', borderRadius: '12px 12px 0 0' }}>
+                    <button className="btn-secondary" onClick={clearImage} style={{ marginRight: 10 }}>
+                      ✕ Xóa ảnh
+                    </button>
+                    <button className="btn-secondary" onClick={downloadTranslatedImage} style={{ marginRight: 'auto' }} title="Tải xuống hình ảnh đã dịch">
+                      <IconCopy /> Tải bản dịch
+                    </button>
+                    <span className="toggle-label" style={{ marginRight: 10, fontSize: 14, fontWeight: 500 }}>Hiện bản gốc</span>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={showOriginalImage} onChange={(e) => setShowOriginalImage(e.target.checked)} />
+                      <span className="slider round"></span>
+                    </label>
                   </div>
-                  <button className="btn-clear-doc" onClick={clearDoc} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#5f6368', fontSize: 18 }}>✕</button>
-                </div>
+                )}
 
-                {docResult && (
-                  <div className="doc-actions" style={{ display: 'flex', justifyContent: 'center', gap: 15 }}>
-                    <button className="btn-secondary" onClick={downloadTranslatedDocument} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}>
-                      <IconCopy /> Tải bản dịch xuống
-                    </button>
-                    <button className="btn-primary" onClick={openTranslatedDocument} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}>
-                      <IconShare /> Mở bản dịch
-                    </button>
+                {!imagePreviewUrl ? (
+                  <div
+                    className="image-upload-zone"
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                  >
+                    <div className="upload-icon"><IconImage /></div>
+                    <h3>Kéo và thả hình ảnh vào đây</h3>
+                    <p>hoặc</p>
+                    <label className="btn-primary" style={{ cursor: 'pointer', padding: '10px 20px', borderRadius: 8, marginTop: 10, display: 'inline-block' }}>
+                      Duyệt qua các tệp
+                      <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="image-viewer" style={{ padding: 20, textAlign: 'center', background: '#f8f9fa', borderRadius: '0 0 12px 12px' }}>
+                    {isOcrProcessing && (
+                      <div className="ocr-loading" style={{ padding: 20, color: '#1a73e8', fontWeight: 500 }}>
+                        <span className="spinner" /> Đang phân tích và dịch hình ảnh...
+                      </div>
+                    )}
+                    <div className="image-container" style={{ position: 'relative', display: 'inline-block', maxWidth: '100%' }}>
+                      <img
+                        ref={imageRef}
+                        src={imagePreviewUrl}
+                        alt="Uploaded"
+                        onLoad={handleImageLoad}
+                        style={{ maxWidth: '100%', maxHeight: '65vh', display: 'block', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      />
+                      {!showOriginalImage && !isOcrProcessing && ocrBlocks.map((block, idx) => (
+                        <div
+                          key={idx}
+                          className="ocr-block"
+                          style={{
+                            position: 'absolute',
+                            left: block.x * imageScale.x,
+                            top: block.y * imageScale.y,
+                            width: block.width * imageScale.x,
+                            height: block.height * imageScale.y,
+                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                            color: '#111',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                            padding: '2px',
+                            boxSizing: 'border-box',
+                            fontSize: Math.max(10, (block.height * imageScale.y) * 0.7) + 'px',
+                            fontWeight: 500,
+                            borderRadius: 4,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                            textAlign: 'center'
+                          }}
+                          title={block.originalText}
+                        >
+                          {block.translatedText}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-            ) : (
-              <div
-                className="doc-upload-zone"
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                style={{ border: '2px dashed #dadce0', borderRadius: 12, padding: '40px 20px', textAlign: 'center', width: '100%', maxWidth: 600, background: '#f8f9fa' }}
+            )}
+
+            {translateMode === 'document' && (
+              <div className="document-pane" style={{ padding: '40px 20px', minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                {isDocProcessing ? (
+                  <div className="doc-loading" style={{ padding: 20, color: '#1a73e8', fontWeight: 500 }}>
+                    <span className="spinner" /> Đang dịch tài liệu...
+                  </div>
+                ) : docFile ? (
+                  <div className="doc-result-container" style={{ width: '100%', maxWidth: 600 }}>
+                    <div className="doc-file-info" style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', background: '#f1f3f4', borderRadius: 8, marginBottom: 20 }}>
+                      <IconDocument />
+                      <div style={{ flex: 1, marginLeft: 15 }}>
+                        <div style={{ fontWeight: 500, color: '#202124' }}>{docFile.name}</div>
+                        <div style={{ fontSize: 13, color: '#5f6368', marginTop: 4 }}>{(docFile.size / 1024).toFixed(0)} KB</div>
+                      </div>
+                      <button className="btn-clear-doc" onClick={clearDoc} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#5f6368', fontSize: 18 }}>✕</button>
+                    </div>
+
+                    {docResult && (
+                      <div className="doc-actions" style={{ display: 'flex', justifyContent: 'center', gap: 15 }}>
+                        <button className="btn-secondary" onClick={downloadTranslatedDocument} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}>
+                          <IconCopy /> Tải bản dịch xuống
+                        </button>
+                        <button className="btn-primary" onClick={openTranslatedDocument} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px' }}>
+                          <IconShare /> Mở bản dịch
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    className="doc-upload-zone"
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    style={{ border: '2px dashed #dadce0', borderRadius: 12, padding: '40px 20px', textAlign: 'center', width: '100%', maxWidth: 600, background: '#f8f9fa' }}
+                  >
+                    <div className="upload-icon" style={{ fontSize: 40, color: '#1a73e8', marginBottom: 15 }}><IconDocument /></div>
+                    <h3 style={{ color: '#202124', marginBottom: 8 }}>Kéo và thả tài liệu vào đây</h3>
+                    <p style={{ color: '#5f6368', fontSize: 14 }}>Hỗ trợ các định dạng .docx, .pdf, .txt</p>
+                    <p style={{ margin: '15px 0' }}>hoặc</p>
+                    <label className="btn-primary" style={{ cursor: 'pointer', padding: '10px 20px', borderRadius: 8, display: 'inline-block' }}>
+                      Duyệt qua các tệp
+                      <input type="file" accept=".txt,.docx,.pdf" style={{ display: 'none' }} onChange={(e) => {
+                        if (e.target.files && e.target.files.length > 0) {
+                          const file = e.target.files[0];
+                          const ext = file.name.split('.').pop()?.toLowerCase();
+                          if (ext === 'txt' || ext === 'docx' || ext === 'pdf') {
+                            handleDocUpload(file);
+                          } else {
+                            setError('Định dạng file không hỗ trợ. Hỗ trợ .txt, .docx, .pdf');
+                          }
+                        }
+                      }} />
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Error ─────────────────────────────────────── */}
+            {error && (
+              <div id="errorBox" className="error-box">
+                ⚠️ {error}
+              </div>
+            )}
+
+            {/* ── Actions ───────────────────────────────────── */}
+            <div className="actions">
+              <div className="actions-left">
+                <button id="clearBtn" className="btn-secondary" type="button" onClick={clearAll}>
+                  Xóa nhanh
+                </button>
+                <button
+                  id="keyboardBtn"
+                  className={`btn-secondary${showKeyboard ? ' active' : ''}`}
+                  type="button"
+                  onClick={() => setShowKeyboard(!showKeyboard)}
+                >
+                  <IconKeyboard /> Bàn phím
+                </button>
+                <button
+                  className={`btn-secondary${showHistory ? ' active' : ''}`}
+                  type="button"
+                  onClick={() => { setShowHistory(!showHistory); setShowFavorites(false); setShowKeyboard(false) }}
+                >
+                  <IconHistory /> Lịch sử
+                </button>
+                <button
+                  className={`btn-secondary${showFavorites ? ' active' : ''}`}
+                  type="button"
+                  onClick={() => { setShowFavorites(!showFavorites); setShowHistory(false); setShowKeyboard(false) }}
+                >
+                  <IconStar filled={showFavorites} /> Yêu thích
+                </button>
+              </div>
+
+              <button
+                id="translateBtn"
+                className="btn-translate"
+                type="button"
+                disabled={loading}
+                onClick={() => void doTranslate(undefined, true)}
               >
-                <div className="upload-icon" style={{ fontSize: 40, color: '#1a73e8', marginBottom: 15 }}><IconDocument /></div>
-                <h3 style={{ color: '#202124', marginBottom: 8 }}>Kéo và thả tài liệu vào đây</h3>
-                <p style={{ color: '#5f6368', fontSize: 14 }}>Hỗ trợ các định dạng .docx, .pdf, .txt</p>
-                <p style={{ margin: '15px 0' }}>hoặc</p>
-                <label className="btn-primary" style={{ cursor: 'pointer', padding: '10px 20px', borderRadius: 8, display: 'inline-block' }}>
-                  Duyệt qua các tệp
-                  <input type="file" accept=".txt,.docx,.pdf" style={{ display: 'none' }} onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      const file = e.target.files[0];
-                      const ext = file.name.split('.').pop()?.toLowerCase();
-                      if (ext === 'txt' || ext === 'docx' || ext === 'pdf') {
-                        handleDocUpload(file);
-                      } else {
-                        setError('Định dạng file không hỗ trợ. Hỗ trợ .txt, .docx, .pdf');
-                      }
-                    }
-                  }} />
-                </label>
+                {loading
+                  ? <><span className="spinner" /> Đang dịch...</>
+                  : <><IconTranslate /> Translate</>
+                }
+              </button>
+            </div>
+
+            {/* ── Dictionary & Examples ─────────────────────── */}
+            {(examples.length > 0 || loadingExamples || (inputText.trim().length >= 2 && !loadingExamples)) && (
+              <div className="examples-section">
+                <h3 className="examples-title">
+                  <IconInfo /> Từ điển Ngữ cảnh & Ví dụ
+                </h3>
+                {loadingExamples ? (
+                  <div className="examples-loading">
+                    <span className="spinner" /> Đang tìm ví dụ...
+                  </div>
+                ) : examples.length > 0 ? (
+                  <div className="examples-list">
+                    {examples.map((ex, idx) => (
+                      <div key={idx} className="example-item">
+                        <div className="example-vi">
+                          <span className="bullet">•</span> {ex.vi}
+                        </div>
+                        <div className="example-ethnic">
+                          {ex.ethnic}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : inputText.trim().length >= 2 ? (
+                  <div className="examples-empty">
+                    Chưa có ví dụ cho từ khóa này trong bộ dữ liệu.
+                  </div>
+                ) : null}
               </div>
             )}
-          </div>
-        )}
+          </section>
 
-        {/* ── Error ─────────────────────────────────────── */}
-        {error && (
-          <div id="errorBox" className="error-box">
-            ⚠️ {error}
-          </div>
-        )}
+          {/* ── Virtual Keyboard (Outside Card) ──────────────── */}
+          {showKeyboard && (
+            <div className="keyboard-outer-wrap">
+              <VirtualKeyboard
+                input={inputText}
+                onChange={handleInputChange}
+                language={sourceLang}
+                onClose={() => setShowKeyboard(false)}
+              />
+            </div>
+          )}
 
-        {/* ── Actions ───────────────────────────────────── */}
-        <div className="actions">
-          <div className="actions-left">
-            <button id="clearBtn" className="btn-secondary" type="button" onClick={clearAll}>
-              Xóa nhanh
-            </button>
-            <button
-              id="keyboardBtn"
-              className={`btn-secondary${showKeyboard ? ' active' : ''}`}
-              type="button"
-              onClick={() => setShowKeyboard(!showKeyboard)}
-            >
-              <IconKeyboard /> Bàn phím
-            </button>
-            <button
-              className={`btn-secondary${showHistory ? ' active' : ''}`}
-              type="button"
-              onClick={() => { setShowHistory(!showHistory); setShowFavorites(false); setShowKeyboard(false) }}
-            >
-              <IconHistory /> Lịch sử
-            </button>
-            <button
-              className={`btn-secondary${showFavorites ? ' active' : ''}`}
-              type="button"
-              onClick={() => { setShowFavorites(!showFavorites); setShowHistory(false); setShowKeyboard(false) }}
-            >
-              <IconStar filled={showFavorites} /> Yêu thích
-            </button>
-          </div>
-
-          <button
-            id="translateBtn"
-            className="btn-translate"
-            type="button"
-            disabled={loading}
-            onClick={() => void doTranslate(undefined, true)}
-          >
-            {loading
-              ? <><span className="spinner" /> Đang dịch...</>
-              : <><IconTranslate /> Translate</>
-            }
-          </button>
-        </div>
-
-        {/* ── Dictionary & Examples ─────────────────────── */}
-        {(examples.length > 0 || loadingExamples || (inputText.trim().length >= 2 && !loadingExamples)) && (
-          <div className="examples-section">
-            <h3 className="examples-title">
-              <IconInfo /> Từ điển Ngữ cảnh & Ví dụ
-            </h3>
-            {loadingExamples ? (
-              <div className="examples-loading">
-                <span className="spinner" /> Đang tìm ví dụ...
+          {/* ── History Section ─────────────────────────────── */}
+          {showHistory && (
+            <div className="extra-section history-section">
+              <div className="section-header">
+                <h3><IconHistory /> Lịch sử dịch gần đây</h3>
+                <button className="btn-text" onClick={clearAllHistory}>
+                  <IconTrash /> Xóa hết
+                </button>
               </div>
-            ) : examples.length > 0 ? (
-              <div className="examples-list">
-                {examples.map((ex, idx) => (
-                  <div key={idx} className="example-item">
-                    <div className="example-vi">
-                      <span className="bullet">•</span> {ex.vi}
+              <div className="history-list">
+                {history.length === 0 ? (
+                  <p className="empty-msg">Chưa có lịch sử dịch nào.</p>
+                ) : (
+                  history.map(item => (
+                    <div key={item.id} className="history-item-card">
+                      <div className="item-langs">
+                        {LANG_META[item.sourceLang].label} → {LANG_META[item.targetLang].label}
+                      </div>
+                      <div className="item-content">
+                        <div className="item-source">{item.sourceText}</div>
+                        <div className="item-target">{item.targetText}</div>
+                      </div>
+                      <div className="item-actions">
+                        <button
+                          className={`btn-star ${isFavorited(item.sourceText, item.targetText, item.targetLang) ? 'active' : ''}`}
+                          onClick={() => toggleFavorite(item)}
+                        >
+                          <IconStar filled={isFavorited(item.sourceText, item.targetText, item.targetLang)} />
+                        </button>
+                        <button className="btn-delete" onClick={() => deleteHistoryItem(item.id)}>
+                          <IconTrash />
+                        </button>
+                      </div>
                     </div>
-                    <div className="example-ethnic">
-                      {ex.ethnic}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : inputText.trim().length >= 2 ? (
-              <div className="examples-empty">
-                Chưa có ví dụ cho từ khóa này trong bộ dữ liệu.
-              </div>
-            ) : null}
-          </div>
-        )}
-      </section>
-
-      {/* ── Virtual Keyboard (Outside Card) ──────────────── */}
-      {showKeyboard && (
-        <div className="keyboard-outer-wrap">
-          <VirtualKeyboard
-            input={inputText}
-            onChange={handleInputChange}
-            language={sourceLang}
-            onClose={() => setShowKeyboard(false)}
-          />
-        </div>
-      )}
-
-      {/* ── History Section ─────────────────────────────── */}
-      {showHistory && (
-        <div className="extra-section history-section">
-          <div className="section-header">
-            <h3><IconHistory /> Lịch sử dịch gần đây</h3>
-            <button className="btn-text" onClick={clearAllHistory}>
-              <IconTrash /> Xóa hết
-            </button>
-          </div>
-          <div className="history-list">
-            {history.length === 0 ? (
-              <p className="empty-msg">Chưa có lịch sử dịch nào.</p>
-            ) : (
-              history.map(item => (
-                <div key={item.id} className="history-item-card">
-                  <div className="item-langs">
-                    {LANG_META[item.sourceLang].label} → {LANG_META[item.targetLang].label}
-                  </div>
-                  <div className="item-content">
-                    <div className="item-source">{item.sourceText}</div>
-                    <div className="item-target">{item.targetText}</div>
-                  </div>
-                  <div className="item-actions">
-                    <button
-                      className={`btn-star ${isFavorited(item.sourceText, item.targetText, item.targetLang) ? 'active' : ''}`}
-                      onClick={() => toggleFavorite(item)}
-                    >
-                      <IconStar filled={isFavorited(item.sourceText, item.targetText, item.targetLang)} />
-                    </button>
-                    <button className="btn-delete" onClick={() => deleteHistoryItem(item.id)}>
-                      <IconTrash />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Favorites Section ───────────────────────────── */}
-      {showFavorites && (
-        <div className="extra-section favorites-section">
-          <div className="section-header">
-            <h3><IconStar filled /> Từ vựng đã lưu</h3>
-            <span className="count-badge">{favorites.length} mục</span>
-          </div>
-          <div className="history-list">
-            {favorites.length === 0 ? (
-              <p className="empty-msg">Bạn chưa lưu từ vựng nào.</p>
-            ) : (
-              favorites.map(item => (
-                <div key={item.id} className="history-item-card favorite">
-                  <div className="item-langs">
-                    {LANG_META[item.sourceLang].label} → {LANG_META[item.targetLang].label}
-                  </div>
-                  <div className="item-content">
-                    <div className="item-source">{item.sourceText}</div>
-                    <div className="item-target">{item.targetText}</div>
-                  </div>
-                  <div className="item-actions">
-                    <button className="btn-star active" onClick={() => toggleFavorite(item)}>
-                      <IconStar filled />
-                    </button>
-                    <button className="btn-delete" onClick={() => toggleFavorite(item)}>
-                      <IconTrash />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Popular Dictionaries ─────────────────────────── */}
-      <div className="popular-section">
-        <h2 className="section-title">Popular and recommended dictionaries</h2>
-        <div className="popular-grid">
-          {[
-            { from: 'vi', to: 'bna', label: 'Vietnamese - Bahnar' },
-            { from: 'bna', to: 'vi', label: 'Bahnar - Vietnamese' },
-            { from: 'vi', to: 'ede', label: 'Vietnamese - Ê-đê' },
-            { from: 'ede', to: 'vi', label: 'Ê-đê - Vietnamese' },
-            { from: 'vi', to: 'km', label: 'Vietnamese - Khmer' },
-            { from: 'km', to: 'vi', label: 'Khmer - Vietnamese' },
-            { from: 'vi', to: 'en', label: 'Vietnamese - English' },
-            { from: 'en', to: 'vi', label: 'English - Vietnamese' },
-          ].map((pair, idx) => (
-            <div
-              key={idx}
-              className="dict-card"
-              onClick={() => {
-                setSourceLang(pair.from as LangCode);
-                setTargetLang(pair.to as LangCode);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            >
-              <div className="dict-card-info">
-                <span className="dict-card-type">Dictionary</span>
-                <span className="dict-card-name">{pair.label}</span>
-              </div>
-              <div className="dict-card-arrow">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 5l7 7-7 7" />
-                </svg>
+                  ))
+                )}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          )}
+
+          {/* ── Favorites Section ───────────────────────────── */}
+          {showFavorites && (
+            <div className="extra-section favorites-section">
+              <div className="section-header">
+                <h3><IconStar filled /> Từ vựng đã lưu</h3>
+                <span className="count-badge">{favorites.length} mục</span>
+              </div>
+              <div className="history-list">
+                {favorites.length === 0 ? (
+                  <p className="empty-msg">Bạn chưa lưu từ vựng nào.</p>
+                ) : (
+                  favorites.map(item => (
+                    <div key={item.id} className="history-item-card favorite">
+                      <div className="item-langs">
+                        {LANG_META[item.sourceLang].label} → {LANG_META[item.targetLang].label}
+                      </div>
+                      <div className="item-content">
+                        <div className="item-source">{item.sourceText}</div>
+                        <div className="item-target">{item.targetText}</div>
+                      </div>
+                      <div className="item-actions">
+                        <button className="btn-star active" onClick={() => toggleFavorite(item)}>
+                          <IconStar filled />
+                        </button>
+                        <button className="btn-delete" onClick={() => toggleFavorite(item)}>
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Popular Dictionaries ─────────────────────────── */}
+          <div className="popular-section">
+            <h2 className="section-title">Popular and recommended dictionaries</h2>
+            <div className="popular-grid">
+              {[
+                { from: 'vi', to: 'bna', label: 'Vietnamese - Bahnar' },
+                { from: 'bna', to: 'vi', label: 'Bahnar - Vietnamese' },
+                { from: 'vi', to: 'ede', label: 'Vietnamese - Ê-đê' },
+                { from: 'ede', to: 'vi', label: 'Ê-đê - Vietnamese' },
+                { from: 'vi', to: 'km', label: 'Vietnamese - Khmer' },
+                { from: 'km', to: 'vi', label: 'Khmer - Vietnamese' },
+                { from: 'vi', to: 'en', label: 'Vietnamese - English' },
+                { from: 'en', to: 'vi', label: 'English - Vietnamese' },
+              ].map((pair, idx) => (
+                <div
+                  key={idx}
+                  className="dict-card"
+                  onClick={() => {
+                    setSourceLang(pair.from as LangCode);
+                    setTargetLang(pair.to as LangCode);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  <div className="dict-card-info">
+                    <span className="dict-card-type">Dictionary</span>
+                    <span className="dict-card-name">{pair.label}</span>
+                  </div>
+                  <div className="dict-card-arrow">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* ── Footer ────────────────────────────────────────── */}
       <footer className="app-footer">
@@ -1520,7 +1539,7 @@ export default function App() {
       </div>
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
-      
+
       {/* Feedback Modal */}
       {feedbackConfig.isOpen && (
         <FeedbackModal
