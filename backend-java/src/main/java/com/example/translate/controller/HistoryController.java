@@ -27,7 +27,7 @@ public class HistoryController {
     @GetMapping
     public ResponseEntity<?> getUserHistory() {
         UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        List<TranslationHistory> historyList = historyRepository.findByUserIdOrderByCreatedAtDesc(userDetails.getId());
+        List<TranslationHistory> historyList = historyRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userDetails.getId());
         return ResponseEntity.ok(historyList);
     }
 
@@ -35,7 +35,7 @@ public class HistoryController {
     public ResponseEntity<?> addHistory(@RequestBody TranslationHistory request) {
         UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         User user = userRepository.findById(userDetails.getId()).orElseThrow();
-        Optional<TranslationHistory> existing = historyRepository.findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedText(
+        Optional<TranslationHistory> existing = historyRepository.findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedTextAndIsDeletedFalse(
                 user.getId(), request.getSourceLang(), request.getTargetLang(), request.getOriginalText(), request.getTranslatedText()
         );
         
@@ -53,9 +53,21 @@ public class HistoryController {
         UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         TranslationHistory history = historyRepository.findById(id).orElse(null);
         if (history != null && history.getUser().getId().equals(userDetails.getId())) {
-            historyRepository.delete(history);
+            history.setDeleted(true);
+            historyRepository.save(history);
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.badRequest().body("History not found or unauthorized");
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteAllHistory() {
+        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        List<TranslationHistory> historyList = historyRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userDetails.getId());
+        for (TranslationHistory h : historyList) {
+            h.setDeleted(true);
+        }
+        historyRepository.saveAll(historyList);
+        return ResponseEntity.ok().build();
     }
 }

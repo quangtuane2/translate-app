@@ -9,9 +9,9 @@ import java.util.Optional;
 
 @Repository
 public interface TranslationHistoryRepository extends JpaRepository<TranslationHistory, Long> {
-    List<TranslationHistory> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<TranslationHistory> findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(Long userId);
 
-    Optional<TranslationHistory> findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedText(
+    Optional<TranslationHistory> findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedTextAndIsDeletedFalse(
         Long userId, String sourceLang, String targetLang, String originalText, String translatedText
     );
 }

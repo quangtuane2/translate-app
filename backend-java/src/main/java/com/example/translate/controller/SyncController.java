@@ -46,7 +46,7 @@ public class SyncController {
             for (SyncRequest.HistoryItem item : syncRequest.getHistory()) {
                 String sourceLang = item.getSourceLang() != null ? item.getSourceLang() : "auto";
                 
-                Optional<TranslationHistory> existing = historyRepository.findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedText(
+                Optional<TranslationHistory> existing = historyRepository.findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedTextAndIsDeletedFalse(
                         user.getId(), sourceLang, item.getTargetLang(), item.getSourceText(), item.getTargetText()
                 );
                 
@@ -80,7 +80,7 @@ public class SyncController {
                 // we should create a history record for it first because favorites REQUIRE a history_id
                 if (relatedHistory == null) {
                     String sourceLang = item.getSourceLang() != null ? item.getSourceLang() : "auto";
-                    Optional<TranslationHistory> existing = historyRepository.findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedText(
+                    Optional<TranslationHistory> existing = historyRepository.findFirstByUserIdAndSourceLangAndTargetLangAndOriginalTextAndTranslatedTextAndIsDeletedFalse(
                             user.getId(), sourceLang, item.getTargetLang(), item.getSourceText(), item.getTargetText()
                     );
                     

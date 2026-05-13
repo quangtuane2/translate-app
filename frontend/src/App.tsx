@@ -862,12 +862,38 @@ export default function App() {
     )
   }
 
-  const deleteHistoryItem = (id: string) => {
+  const deleteHistoryItem = async (id: string) => {
+    // Sync to database
+    if (user && !isNaN(Number(id))) {
+      try {
+        await fetch(`/api/history/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${user.accessToken}`
+          }
+        });
+      } catch (err) {
+        console.error("Failed to delete history on DB", err);
+      }
+    }
     setHistory(prev => prev.filter(h => h.id !== id))
   }
 
-  const clearAllHistory = () => {
+  const clearAllHistory = async () => {
     if (window.confirm('Bạn có chắc muốn xóa toàn bộ lịch sử dịch?')) {
+      // Sync to database
+      if (user) {
+        try {
+          await fetch(`/api/history`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${user.accessToken}`
+            }
+          });
+        } catch (err) {
+          console.error("Failed to clear all history on DB", err);
+        }
+      }
       setHistory([])
     }
   }
