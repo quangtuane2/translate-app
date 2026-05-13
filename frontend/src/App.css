@@ -273,7 +273,7 @@ textarea {
   border: 1.5px solid var(--border);
   padding: 14px 14px 32px;
   outline: none;
-  font-size: 15px;
+  font-size: 20px;
   font-family: 'Inter', sans-serif;
   line-height: 1.6;
   background: rgba(255, 255, 255, 0.3);
@@ -496,9 +496,17 @@ textarea:focus {
 }
 
 @keyframes pulse-mic {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 /* Speaker icon inside input */
@@ -578,9 +586,17 @@ textarea:focus {
 }
 
 @keyframes pulse-speaker {
-  0% { box-shadow: 0 0 0 0 rgba(67, 56, 202, 0.3); }
-  70% { box-shadow: 0 0 0 8px rgba(67, 56, 202, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(67, 56, 202, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(67, 56, 202, 0.3);
+  }
+
+  70% {
+    box-shadow: 0 0 0 8px rgba(67, 56, 202, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(67, 56, 202, 0);
+  }
 }
 
 /* ── Error box ──────────────────────────────────────────── */
@@ -647,6 +663,37 @@ textarea:focus {
 .btn-secondary svg {
   width: 14px;
   height: 14px;
+}
+
+/* Primary buttons (Login) */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--indigo);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.5px;
+  transition: all var(--transition);
+  box-shadow: 0 4px 12px rgba(55, 48, 163, 0.2);
+  margin-top: 15px;
+}
+
+.btn-primary:hover {
+  background: var(--indigo-mid);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(55, 48, 163, 0.3);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 /* Translate CTA */
@@ -973,7 +1020,8 @@ textarea:focus {
 .btn-keyboard-toggle {
   position: absolute;
   bottom: 10px;
-  right: 100px; /* To the left of char-count */
+  right: 100px;
+  /* To the left of char-count */
   background: #f3f4f6;
   border: 1px solid var(--border);
   color: var(--muted);
@@ -1212,6 +1260,7 @@ textarea:focus {
     grid-template-columns: 1fr;
     gap: 40px;
   }
+
   .footer-links {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1294,7 +1343,7 @@ textarea:focus {
 .history-item-card:hover {
   border-color: var(--indigo-mid);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .item-langs {
@@ -1328,7 +1377,8 @@ textarea:focus {
   padding-top: 10px;
 }
 
-.btn-star, .btn-delete {
+.btn-star,
+.btn-delete {
   background: white;
   border: 1px solid var(--border);
   width: 32px;
@@ -1342,12 +1392,14 @@ textarea:focus {
   transition: all 0.2s;
 }
 
-.btn-star svg, .btn-delete svg {
+.btn-star svg,
+.btn-delete svg {
   width: 16px;
   height: 16px;
 }
 
-.btn-star:hover, .btn-star.active {
+.btn-star:hover,
+.btn-star.active {
   background: #fef3c7;
   color: #d97706;
   border-color: #fbbf24;
@@ -1431,7 +1483,8 @@ textarea:focus {
   transition: background 0.3s ease;
 }
 
-.image-upload-zone:hover, .image-upload-zone.drag-over {
+.image-upload-zone:hover,
+.image-upload-zone.drag-over {
   background: rgba(67, 56, 202, 0.02);
 }
 
@@ -1501,11 +1554,11 @@ textarea:focus {
   transition: .4s;
 }
 
-.toggle-switch input:checked + .slider {
+.toggle-switch input:checked+.slider {
   background-color: var(--indigo-mid);
 }
 
-.toggle-switch input:checked + .slider:before {
+.toggle-switch input:checked+.slider:before {
   transform: translateX(20px);
 }
 

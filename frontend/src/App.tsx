@@ -8,6 +8,9 @@ import bnaFlag from './assets/bana.png'
 import edeFlag from './assets/ede.png'
 import khmerFlag from './assets/khmer.png'
 import VirtualKeyboard from './VirtualKeyboard'
+import { useAuth } from './context/AuthContext';
+import AuthModal from './components/AuthModal';
+import FeedbackModal from './components/FeedbackModal';
 
 type LangCode = 'vi' | 'bna' | 'ede' | 'km'
 
@@ -243,6 +246,12 @@ export default function App() {
   const currentAudio = useRef<HTMLAudioElement | null>(null)
   const imageRef = useRef<HTMLImageElement>(null)
 
+  const { user, logout } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [feedbackConfig, setFeedbackConfig] = useState<{ isOpen: boolean, type: 'EDIT' | 'VOTE', historyId: string | number }>({ isOpen: false, type: 'EDIT', historyId: 0 })
+  const [votedHistoryIds, setVotedHistoryIds] = useState<Set<string | number>>(new Set());
+  const [currentHistoryId, setCurrentHistoryId] = useState<number | string>(0);
+
   const handleImageLoad = () => {
     if (imageRef.current) {
       const scaleX = imageRef.current.clientWidth / imageRef.current.naturalWidth;
@@ -257,6 +266,59 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [imagePreviewUrl]);
 
+  // Fetch History and Favorites on Login
+  useEffect(() => {
+    if (user) {
+      // Fetch History
+      fetch('/api/history', {
+        headers: { 'Authorization': `Bearer ${user.accessToken}` }
+      })
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          if (Array.isArray(data)) {
+            const formattedHistory = data.map((item: any) => ({
+              id: item.id.toString(),
+              sourceText: item.originalText,
+              targetText: item.translatedText,
+              sourceLang: item.sourceLang,
+              targetLang: item.targetLang,
+              timestamp: new Date(item.createdAt).getTime()
+            }));
+            setHistory(formattedHistory);
+          }
+        })
+        .catch(console.error);
+
+      // Fetch Favorites
+      fetch('/api/favorites', {
+        headers: { 'Authorization': `Bearer ${user.accessToken}` }
+      })
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          if (Array.isArray(data)) {
+            const formattedFavorites = data.map((fav: any) => ({
+              id: fav.history.id.toString(),
+              sourceText: fav.history.originalText,
+              targetText: fav.history.translatedText,
+              sourceLang: fav.history.sourceLang,
+              targetLang: fav.history.targetLang,
+              timestamp: new Date(fav.createdAt).getTime()
+            }));
+            setFavorites(formattedFavorites);
+          }
+        })
+        .catch(console.error);
+    } else {
+      // User logged out, restore local
+      try {
+        const savedHistory = localStorage.getItem('translate_history');
+        const savedFavs = localStorage.getItem('translate_favorites');
+        setHistory(savedHistory ? JSON.parse(savedHistory) : []);
+        setFavorites(savedFavs ? JSON.parse(savedFavs) : []);
+      } catch { }
+    }
+  }, [user]);
+
   /* Show toast then hide after 2 s */
   const showToast = () => {
     setToast(true)
@@ -268,13 +330,19 @@ export default function App() {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
   }, [])
 
-  // Save to LocalStorage
+  // Save to LocalStorage ONLY for guests
   useEffect(() => {
-    localStorage.setItem('translate_history', JSON.stringify(history))
+    if (!user) {
+      localStorage.setItem('translate_history', JSON.stringify(history))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history])
 
   useEffect(() => {
-    localStorage.setItem('translate_favorites', JSON.stringify(favorites))
+    if (!user) {
+      localStorage.setItem('translate_favorites', JSON.stringify(favorites))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [favorites])
 
   // Auto translate on load if text is in URL
@@ -539,8 +607,37 @@ export default function App() {
 
       // Add to History
       if (saveToHistory && resultText && clean) {
+        let savedHistoryId: string | number = Date.now().toString();
+
+        // If user logged in, save to API to get real ID
+        if (user) {
+          try {
+            const histResp = await fetch('/api/history', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.accessToken}`
+              },
+              body: JSON.stringify({
+                sourceLang,
+                targetLang,
+                originalText: clean,
+                translatedText: resultText
+              })
+            });
+            if (histResp.ok) {
+              const histData = await histResp.json();
+              savedHistoryId = histData.id;
+            }
+          } catch (e) {
+            console.error('Failed to save history to DB', e);
+          }
+        }
+
+        setCurrentHistoryId(savedHistoryId);
+
         const newItem: HistoryItem = {
-          id: Date.now().toString(),
+          id: savedHistoryId.toString(),
           sourceText: clean,
           targetText: resultText,
           sourceLang,
@@ -550,7 +647,10 @@ export default function App() {
         setHistory(prev => {
           // Avoid duplicates (same text and langs)
           const isDup = prev.find(h => h.sourceText === clean && h.sourceLang === sourceLang && h.targetLang === targetLang)
-          if (isDup) return prev
+          if (isDup) {
+            setCurrentHistoryId(isDup.id);
+            return prev;
+          }
           return [newItem, ...prev].slice(0, 50) // Keep last 50
         })
       }
@@ -615,7 +715,7 @@ export default function App() {
     }
 
     const item: HistoryItem = {
-      id: Date.now().toString(),
+      id: currentHistoryId ? currentHistoryId.toString() : Date.now().toString(),
       sourceText: sText,
       targetText: tText,
       sourceLang,
@@ -721,7 +821,23 @@ export default function App() {
     }
   }
 
-  const toggleFavorite = (item: HistoryItem) => {
+  const toggleFavorite = async (item: HistoryItem) => {
+    // If user is logged in, sync to database first
+    if (user && item.id && !isNaN(Number(item.id))) {
+      try {
+        await fetch('/api/favorites', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${user.accessToken}`
+          },
+          body: JSON.stringify({ historyId: Number(item.id) })
+        });
+      } catch (err) {
+        console.error("Failed to toggle favorite on DB", err);
+      }
+    }
+
     setFavorites(prev => {
       // Check by content and language to sync across form/history
       const isFav = prev.find(f =>
@@ -783,6 +899,16 @@ export default function App() {
         </div>
         <div className="brand">Minority Language Translator</div>
         <div className="subtitle">VIETNAMESE ↔ BA NA / Ê-ĐÊ / KHMER</div>
+        <div className="auth-buttons" style={{ display: 'flex', justifyContent: 'center', marginTop: '15px' }}>
+          {user ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--muted)', fontWeight: 500 }}>Chào, <strong>{user.username}</strong></span>
+              <button className="btn-secondary" onClick={logout} style={{ padding: '8px 16px', fontSize: '13px' }}>Đăng xuất</button>
+            </div>
+          ) : (
+            <button className="btn-primary" onClick={() => setShowAuthModal(true)} style={{ margin: 0 }}>Đăng nhập</button>
+          )}
+        </div>
       </header>
 
       {/* ── Card ──────────────────────────────────────────── */}
@@ -960,6 +1086,43 @@ export default function App() {
                 >
                   <IconShare />
                 </button>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '10px', paddingRight: '5px' }}>
+                <button
+                  className="btn-secondary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px' }}
+                  title="Đề xuất bản dịch tốt hơn" 
+                  onClick={() => {
+                    if (!user) return setShowAuthModal(true);
+                    if (!currentHistoryId) { setError('Bạn chưa dịch nội dung nào'); return; }
+                    setFeedbackConfig({ isOpen: true, type: 'EDIT', historyId: currentHistoryId });
+                  }}>
+                  ✏️ Edit
+                </button>
+                
+                {votedHistoryIds.has(currentHistoryId) ? (
+                  <button 
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px', opacity: 0.6, cursor: 'not-allowed' }}
+                    title="Bạn đã đánh giá bản dịch này" 
+                    disabled 
+                  >
+                    ✅ Voted
+                  </button>
+                ) : (
+                  <button 
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', padding: '6px 12px' }}
+                    title="Đánh giá bản dịch" 
+                    onClick={() => {
+                      if (!user) return setShowAuthModal(true);
+                      if (!currentHistoryId) { setError('Bạn chưa dịch nội dung nào'); return; }
+                      setFeedbackConfig({ isOpen: true, type: 'VOTE', historyId: currentHistoryId });
+                    }}>
+                    ⭐ Voting
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1355,6 +1518,22 @@ export default function App() {
       <div id="copyToast" className={`toast${toast ? ' show' : ''}`}>
         ✓ Đã copy vào clipboard!
       </div>
+
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
+      
+      {/* Feedback Modal */}
+      {feedbackConfig.isOpen && (
+        <FeedbackModal
+          historyId={feedbackConfig.historyId}
+          type={feedbackConfig.type}
+          onClose={() => setFeedbackConfig({ ...feedbackConfig, isOpen: false })}
+          onSuccess={() => {
+            if (feedbackConfig.type === 'VOTE') {
+              setVotedHistoryIds(prev => new Set(prev).add(feedbackConfig.historyId));
+            }
+          }}
+        />
+      )}
     </main>
   )
 }
