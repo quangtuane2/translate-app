@@ -1,85 +1,169 @@
-# VN ↔ Ba Na Translator (Demo NMT Architecture)
+# VN ↔ Ba Na Translator
 
-Ứng dụng web dịch thuật giao diện kiểu Google Dịch (2 ô nhập/xuất), kèm backend REST để gọi dịch theo kiến trúc:
-`Frontend (UI) -> Java Spring Boot API (/api/translate) -> Python FastAPI Inference (/internal/translate)`.
+Dự án ứng dụng web dịch thuật song ngữ **Tiếng Việt ↔ Tiếng Ba Na**. Ứng dụng cung cấp giao diện tương tự Google Dịch, kết hợp với hệ thống Backend RESTful API và một Microservice Inference (chạy mô hình NMT - Neural Machine Translation) để xử lý ngôn ngữ tự nhiên.
 
-Hiện tại phần “dịch thật” đang là **placeholder** (hook) để chạy end-to-end. Bạn có thể thay bằng model Transformer fine-tuned ở bước tiếp theo.
+---
 
-## Kiến trúc & Luồng API
+## 1. Giới thiệu đề tài
+Ngôn ngữ Ba Na là một ngôn ngữ dân tộc thiểu số tại Việt Nam. Dự án này được xây dựng nhằm mục đích cung cấp một công cụ dịch máy tự động (Machine Translation) hỗ trợ dịch thuật hai chiều giữa Tiếng Việt và Tiếng Ba Na. Hệ thống không chỉ có chức năng dịch văn bản thông thường mà còn được thiết kế với kiến trúc Microservices linh hoạt, sẵn sàng mở rộng để tích hợp các tính năng nâng cao như nhận dạng chữ qua hình ảnh (OCR), đọc văn bản (Text-to-Speech), và xử lý tài liệu (PDF, Word).
 
-```text
-POST /api/translate (Java)
-  -> forward sang
-POST /internal/translate (Python)
-  -> trả JSON về { translatedText, sourceLang, targetLang }
+---
+
+## 2. Công nghệ và Thư viện sử dụng
+
+Dự án được chia thành 3 phân hệ chính với các stack công nghệ hiện đại:
+
+### 🌟 Frontend (Giao diện người dùng)
+- **Framework & Build tool:** React.js (v19) và Vite, viết bằng TypeScript.
+- **Thư viện chính:**
+  - `react-simple-keyboard`: Bàn phím ảo hỗ trợ nhập liệu ký tự đặc biệt.
+  - `recharts`: Vẽ biểu đồ thống kê (nếu cần).
+
+### ⚙️ Backend API (Gateway & Quản lý nghiệp vụ)
+- **Ngôn ngữ:** Java 17.
+- **Framework:** Spring Boot 3.3.3.
+- **Thư viện và Module:**
+  - `Spring Web`: Cung cấp RESTful API.
+  - `Spring Security` & `JJWT (JSON Web Token)`: Xác thực và phân quyền người dùng.
+  - `Spring Data JPA`: Quản lý truy xuất cơ sở dữ liệu.
+  - `MySQL Connector/J`: Kết nối cơ sở dữ liệu MySQL.
+
+### 🧠 Python Inference (Xử lý AI & Model)
+- **Ngôn ngữ:** Python 3.10+.
+- **Framework:** FastAPI & Uvicorn (phục vụ API hiệu năng cao).
+- **Thư viện AI & Xử lý:**
+  - `Pydantic`: Validate dữ liệu đầu vào.
+  - `gTTS`: Text-to-Speech (Chuyển đổi văn bản thành giọng nói).
+  - `pytesseract` & `Pillow`: Nhận dạng ký tự quang học (OCR) từ hình ảnh.
+  - `PyMuPDF` & `python-docx`: Đọc và trích xuất văn bản từ tệp PDF và Word.
+
+### 🗄️ Cơ sở dữ liệu
+- **Hệ quản trị:** MySQL.
+
+---
+
+## 3. Kiến trúc hệ thống
+
+Hệ thống hoạt động dựa trên mô hình Client-Server kết hợp Microservices. Luồng dữ liệu cho một yêu cầu dịch thuật như sau:
+
+```mermaid
+graph LR
+    A[Frontend React UI] -->|POST /api/translate| B(Java Spring Boot API)
+    B -->|Bảo mật, Ghi log DB| B
+    B -->|POST /internal/translate| C(Python FastAPI Inference)
+    C -->|Chạy AI Model| D[(Mô hình NMT)]
+    D -->|Kết quả Dịch| C
+    C -->|Trả JSON| B
+    B -->|Trả JSON| A
 ```
 
-## Yêu cầu
+- **Frontend:** Nhận dữ liệu đầu vào từ người dùng (Văn bản, File, Hình ảnh).
+- **Java Backend:** Đóng vai trò là API Gateway. Chịu trách nhiệm bảo mật (Authentication/Authorization bằng JWT), ghi log lịch sử dịch vào MySQL, sau đó định tuyến (forward) yêu cầu dịch (chứa text) tới service Python.
+- **Python Inference:** Chuyên trách tải và chạy các mô hình Machine Learning / Deep Learning nặng. Sau khi dịch xong, trả kết quả về cho Java.
 
-- Python 3.10+ (trong máy hiện có Python 3.14)
-- Java 17+ (trong máy hiện có Java 24)
-- Maven 3.8+
+---
 
-## Chạy dịch vụ
+## 4. Cài đặt và Chạy chương trình
 
-### 0) Build UI React/Vite (nếu bạn vừa thay code frontend)
+### Yêu cầu môi trường (Prerequisites)
+- **Node.js** (Phiên bản 18+ khuyến nghị)
+- **Java JDK 17+**
+- **Maven 3.8+**
+- **Python 3.10+**
+- **MySQL Server** (Đang chạy local hoặc remote)
 
+### Bước 1: Chuẩn bị Cơ sở dữ liệu
+1. Mở MySQL, tạo một database cho ứng dụng.
+2. Import file `database.sql` (nếu có) hoặc để Spring Boot tự tạo bảng dựa trên Entity. Cấu hình thông tin kết nối MySQL (username, password, db url) trong file `backend-java/src/main/resources/application.properties`.
+
+### Bước 2: Cài đặt và chạy Python Inference Server
+Phân hệ này chạy mô hình dịch thuật. Cần bật nó trước để Java Backend có thể kết nối được.
+
+```powershell
+# 1. Di chuyển vào thư mục python-inference
+cd python-inference
+
+# 2. Tạo môi trường ảo (Virtual Environment)
+python -m venv .venv
+
+# 3. Kích hoạt môi trường ảo (Trên Windows)
+.\.venv\Scripts\activate
+
+# 4. Cài đặt các gói phụ thuộc
+pip install -r requirements.txt
+
+# 5. Tải model AI (Lưu tất cả model vào thư mục python-inference/models/)
+# Link tải: https://drive.google.com/drive/folders/1M5o-T0alc5zGt8IGBH5am4ew7Ej5kxlO?usp=sharing
+
+# 6. Chạy server FastAPI
+uvicorn app.main:app --host 127.0.0.1 --port 8001
+```
+*Ghi chú: Python API sẽ chạy tại `http://127.0.0.1:8001`.*
+
+### Bước 3: Cài đặt và chạy Java Backend (Spring Boot)
+
+```powershell
+# 1. Mở terminal mới, di chuyển vào thư mục backend-java
+cd backend-java
+
+# 2. Build dự án và tải các thư viện Maven
+mvn clean install -DskipTests
+
+# 3. Chạy ứng dụng Spring Boot
+mvn spring-boot:run -DskipTests
+```
+*Ghi chú: Java API sẽ chạy tại `http://127.0.0.1:8080`. Chú ý backend sẽ gọi Python ở `http://localhost:8001` theo cấu hình `python.baseUrl`.*
+
+### Bước 4: Cài đặt và chạy Frontend React
+
+Bạn có thể chạy Frontend độc lập (Dev mode) hoặc Build để tích hợp vào Spring Boot.
+
+**Tùy chọn A: Chạy Development Server (Khuyên dùng khi code Frontend)**
+```powershell
+# 1. Mở terminal mới, di chuyển vào thư mục frontend
+cd frontend
+
+# 2. Cài đặt các gói NPM
+npm install
+
+# 3. Chạy Vite Server
+npm run dev
+```
+
+**Tùy chọn B: Build và tích hợp vào Spring Boot (Production Mode)**
 ```powershell
 cd frontend
 npm install
 npm run build
 ```
+*Sau khi build, script `postbuild` sẽ tự động copy file từ `frontend/dist` sang thư mục `backend-java/src/main/resources/static/`. Sau đó bạn chỉ cần chạy lại Spring Boot là giao diện sẽ được phục vụ trực tiếp tại `http://127.0.0.1:8080/`.*
 
-Sau khi build, script `postbuild` sẽ tự copy `frontend/dist` sang `backend-java/src/main/resources/static/` để Spring Boot phục vụ giao diện mới.
+---
 
-### 1) Chạy Python (FastAPI)
+## 5. Dữ liệu API (Contract)
 
-```powershell
-cd python-inference
-.\.venv\Scripts\uvicorn app.main:app --host 127.0.0.1 --port 8001
-```
-
-- Endpoint: `POST http://127.0.0.1:8001/internal/translate`
-
-### 2) Chạy Java (Spring Boot)
-
-```powershell
-cd backend-java
-mvn -f pom.xml spring-boot:run -DskipTests
-```
-
-- Java phục vụ UI tại: `http://127.0.0.1:8080/`
-- Endpoint: `POST http://127.0.0.1:8080/api/translate`
-
-> Lưu ý: nếu bạn đã chạy Python ở bước 1 thì Java sẽ gọi sang Python theo `python.baseUrl` (mặc định `http://localhost:8001` trong `application.properties`).
-
-## Dữ liệu API (Contract)
-
-### Request (Java/Python)
+### Yêu cầu (Request)
 
 ```json
+POST /api/translate
 {
-  "text": "Xin chao",
+  "text": "Xin chào",
   "sourceLang": "vi",
   "targetLang": "bna"
 }
 ```
 
-Ngôn ngữ đang hỗ trợ demo:
-- `vi`: Tiếng Việt
-- `bna`: Tiếng Ba Na
-
-### Response (200)
+### Phản hồi thành công (Response - 200 OK)
 
 ```json
 {
-  "translatedText": "[BaNa-demo] Xin chao",
+  "translatedText": "[BaNa-demo] Xin chào",
   "sourceLang": "vi",
   "targetLang": "bna"
 }
 ```
 
-### Error (400 Validation)
+### Lỗi hợp lệ (Error - 400 Validation)
 
 ```json
 {
@@ -88,38 +172,5 @@ Ngôn ngữ đang hỗ trợ demo:
 }
 ```
 
-## Thay placeholder bằng model Transformer local (Gợi ý)
-
-File hook hiện tại nằm ở:
-- `python-inference/app/inference/translator.py`
-
-Bạn chỉ cần thay hàm `translate(text, source_lang, target_lang)` để:
-1. Load tokenizer/model đã fine-tune (ví dụ từ thư mục model local).
-2. Tokenize input -> chạy inference -> decode output thành chuỗi dịch.
-3. Trả về `translated_text`.
-
-Sau khi cập nhật, frontend và Java API sẽ tự động dùng bản dịch thật mà không cần đổi lại contract.
-
-Hướng dẫn clone về & cài thư viện
-
-# 1. Clone project
-git clone https://github.com/quangtuane2/translate-app.git
-cd translate-app
-
-# 2. Cài Python dependencies
-cd python-inference
-python -m venv .venv
-.venv\Scripts\activate       # Windows
-pip install -r requirements.txt
-
-# 3. Cài Node.js dependencies
-cd ../frontend
-npm install
-
-# 4. Build Java (Maven tự tải dependencies)
-cd ../backend-java
-mvn install
-
-# 5. Download model AI
-https://drive.google.com/drive/folders/1M5o-T0alc5zGt8IGBH5am4ew7Ej5kxlO?usp=sharing
-# lưu tất cả các model vào đường dẫn sau: python-inference/models/
+---
+*Ghi chú: Hiện tại hàm dịch ở `python-inference/app/inference/translator.py` có thể đang đóng vai trò placeholder, bạn có thể chỉnh sửa hàm này để load và xử lý text bằng model Transformer thật đã được fine-tune.*
